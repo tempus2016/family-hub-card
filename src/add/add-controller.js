@@ -11,7 +11,11 @@ import { logFailure } from '../data/log.js';
  */
 
 const TODO_CREATE = 1; // TodoListEntityFeature.CREATE_TODO_ITEM
+const TODO_DUE_DATE = 16; // TodoListEntityFeature.SET_DUE_DATE_ON_ITEM
 const CALENDAR_CREATE = 1; // CalendarEntityFeature.CREATE_EVENT
+
+/** Where TaskMate's own chore editor lives. */
+export const TASKMATE_PANEL = '/taskmate-admin';
 
 const supports = (hass, entityId, bit) =>
   Boolean(entityId && ((hass?.states?.[entityId]?.attributes?.supported_features || 0) & bit));
@@ -21,6 +25,18 @@ export function creatableTodoLists(hass, config) {
   return (config.people || [])
     .map((p) => p.todo)
     .filter((id) => supports(hass, id, TODO_CREATE));
+}
+
+/**
+ * Whether a list accepts a due date.
+ *
+ * Separate from CREATE, and easy to miss: Home Assistant's own Local To-do
+ * reports 15 — create, delete, update, move — without SET_DUE_DATE. Offering
+ * the field regardless makes the service reject the entire call with
+ * "Entity does not support setting field: due_date".
+ */
+export function supportsDueDate(hass, entityId) {
+  return supports(hass, entityId, TODO_DUE_DATE);
 }
 
 /** Calendars configured on this card that can accept new events. */

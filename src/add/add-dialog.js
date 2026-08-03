@@ -1,13 +1,13 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { tokens, sharedStyles } from '../styles/shared.js';
+import { sharedStyles } from '../styles/shared.js';
 import {
   availableTypes,
   creatableTodoLists,
   creatableCalendars,
-  taskmateChildren,
+  supportsDueDate,
   createTodo,
   createEvent,
-  createChore,
+  TASKMATE_PANEL,
 } from './add-controller.js';
 
 const LABELS = {
@@ -36,7 +36,9 @@ export class FamilyHubAddDialog extends LitElement {
   };
 
   static styles = [
-    tokens,
+    // Deliberately no `tokens` import: custom properties inherit from the card
+    // host through the shadow boundary, so the dialog follows whatever palette
+    // the card resolved. Defining them here pinned it to dark forever.
     sharedStyles,
     css`
       .sheet { background: var(--fh-bg); color: var(--fh-text); border-radius: var(--fh-radius); padding: 20px 22px; min-width: 320px; max-width: 460px; }
@@ -44,6 +46,7 @@ export class FamilyHubAddDialog extends LitElement {
       .types { display: flex; flex-direction: column; gap: 8px; }
       .type { display: flex; align-items: center; min-height: var(--fh-touch); padding: 0 14px; border-radius: var(--fh-radius-inner); background: var(--fh-surface); border: none; color: var(--fh-text); font: inherit; font-size: 16px; cursor: pointer; text-align: left; }
       .type:hover { background: var(--fh-chip); }
+      .type .hint { margin-left: auto; font-size: 12px; color: var(--fh-text-mute); }
       label { display: block; font-size: 13px; color: var(--fh-text-mute); margin: 12px 0 4px; }
       input, select { width: 100%; box-sizing: border-box; min-height: var(--fh-touch); padding: 0 12px; border-radius: 10px; border: 1px solid var(--fh-rule); background: var(--fh-surface); color: var(--fh-text); font: inherit; font-size: 16px; }
       .row { display: flex; gap: 10px; }
@@ -77,8 +80,22 @@ export class FamilyHubAddDialog extends LitElement {
   show() {
     this._reset();
     const types = availableTypes(this.hass, this.config);
-    if (types.length === 1) this._type = types[0];
+    if (types.length === 1) {
+      if (types[0] === 'chore') return this._openTaskMate();
+      this._type = types[0];
+    }
     this.open = true;
+  }
+
+  /**
+   * TaskMate owns chore creation. Its panel handles recurrence, points,
+   * assignment modes and approval — a modal here would be a poor subset of an
+   * editor that already exists, and add_chore is admin-only anyway.
+   */
+  _openTaskMate() {
+    this._close();
+    window.history.pushState(null, '', TASKMATE_PANEL);
+    window.dispatchEvent(new CustomEvent('location-changed', { bubbles: true, composed: true }));
   }
 
   _close() {
@@ -117,15 +134,10 @@ export class FamilyHubAddDialog extends LitElement {
 
     if (this._type === 'todo') {
       res = await createTodo(this.hass, { entityId: f.entityId, title: f.title, due: f.due });
-    } else if (this._type === 'calendar') {
+    } else {
       res = await createEvent(this.hass, {
         entityId: f.entityId, title: f.title, date: f.date || this._isoDate(),
         allDay: Boolean(f.allDay), start: f.start, end: f.end,
-      });
-    } else {
-      res = await createChore(this.hass, {
-        name: f.title, points: f.points, assignedTo: f.assignedTo,
-        requiresApproval: f.requiresApproval,
       });
     }
 
@@ -156,7 +168,9 @@ export class FamilyHubAddDialog extends LitElement {
       <h2>Add</h2>
       <div class="types">
         ${types.map(
-          (t) => html`<button class="type" @click=${() => { this._type = t; }}>${LABELS[t]}</button>`,
+          (t) => html`<button class="type"
+            @click=${() => (t === 'chore' ? this._openTaskMate() : (this._type = t))}
+          >${LABELS[t]}${t === 'chore' ? html`<span class="hint">opens TaskMate</span>` : nothing}</button>`,
         )}
       </div>
       <div class="actions">
@@ -166,11 +180,8 @@ export class FamilyHubAddDialog extends LitElement {
   }
 
   _form() {
-    const body =
-      this._type === 'todo' ? this._todoForm()
-        : this._type === 'calendar' ? this._eventForm()
-          : this._choreForm();
-    const valid = Boolean(this._fields.title && (this._type === 'chore' || this._fields.entityId));
+    const body = this._type === 'todo' ? this._todoForm() : this._eventForm();
+    const valid = Boolean(this._fields.title && this._fields.entityId);
 
     return html`
       <h2>${LABELS[this._type]}</h2>
@@ -200,12 +211,16 @@ export class FamilyHubAddDialog extends LitElement {
   }
 
   _todoForm() {
+    const lists = creatableTodoLists(this.hass, this.config);
+    const chosen = this._fields.entityId;
     return html`
-      ${this._entitySelect(creatableTodoLists(this.hass, this.config), 'List')}
+      ${this._entitySelect(lists, 'List')}
       <label>Task</label>
       <input type="text" @input=${(e) => this._set('title', e.target.value)} />
-      <label>Due (optional)</label>
-      <input type="date" @input=${(e) => this._set('due', e.target.value)} />
+      ${chosen && supportsDueDate(this.hass, chosen)
+        ? html`<label>Due (optional)</label>
+            <input type="date" @input=${(e) => this._set('due', e.target.value)} />`
+        : nothing}
     `;
   }
 
@@ -236,35 +251,6 @@ export class FamilyHubAddDialog extends LitElement {
     `;
   }
 
-  _choreForm() {
-    const children = taskmateChildren(this.hass, this.config);
-    const assigned = this._fields.assignedTo || [];
-    const toggle = (id, on) =>
-      this._set('assignedTo', on ? [...assigned, id] : assigned.filter((x) => x !== id));
-
-    return html`
-      <label>Chore</label>
-      <input type="text" @input=${(e) => this._set('title', e.target.value)} />
-      <label>Points</label>
-      <input type="number" min="0" .value=${String(this._fields.points ?? 10)}
-        @input=${(e) => this._set('points', e.target.value)} />
-      <label>Assign to</label>
-      ${children.length
-        ? children.map(
-            (c) => html`<div class="check">
-              <input type="checkbox" id=${`c-${c.id}`} .checked=${assigned.includes(c.id)}
-                @change=${(e) => toggle(c.id, e.target.checked)} />
-              <label for=${`c-${c.id}`} style="margin:0">${c.name}</label>
-            </div>`,
-          )
-        : html`<div class="notice">No TaskMate children found. Add a points sensor to a person first.</div>`}
-      <div class="check">
-        <input type="checkbox" id="approval" .checked=${this._fields.requiresApproval !== false}
-          @change=${(e) => this._set('requiresApproval', e.target.checked)} />
-        <label for="approval" style="margin:0">Needs approval</label>
-      </div>
-    `;
-  }
 }
 
 customElements.define('family-hub-add-dialog', FamilyHubAddDialog);

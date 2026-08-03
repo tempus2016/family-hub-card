@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { availableTypes, todoPayload, eventPayload } from '../src/add/add-controller.js';
+import { availableTypes, todoPayload, eventPayload, supportsDueDate } from '../src/add/add-controller.js';
 
 const CREATE = 1;
 const UPDATE = 4;
@@ -120,5 +120,24 @@ describe('eventPayload', () => {
   it('rolls a late start into the next day rather than emitting an end before the start', () => {
     const p = eventPayload({ entityId: 'calendar.ana', title: 'Late', date: '2026-08-05', start: '23:30' });
     expect(p.end_date_time).toBe('2026-08-06T00:30:00');
+  });
+});
+
+describe('supportsDueDate', () => {
+  const DUE = 16;
+
+  it('is false for a list that can create but not set a due date', () => {
+    // Home Assistant's own Local To-do reports exactly this.
+    const h = hass({ states: { 'todo.ana': { attributes: { supported_features: 15 } } } });
+    expect(supportsDueDate(h, 'todo.ana')).toBe(false);
+  });
+
+  it('is true when the list sets due dates', () => {
+    const h = hass({ states: { 'todo.ana': { attributes: { supported_features: CREATE | DUE } } } });
+    expect(supportsDueDate(h, 'todo.ana')).toBe(true);
+  });
+
+  it('is false for an entity missing from hass', () => {
+    expect(supportsDueDate(hass(), 'todo.nope')).toBe(false);
   });
 });
