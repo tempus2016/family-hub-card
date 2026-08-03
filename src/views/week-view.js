@@ -27,6 +27,49 @@ export function bucketByDay(events, days, tz) {
   return days.map((d) => (events || []).filter((e) => isSameLocalDay(e.start, d.date, tz)));
 }
 
+/**
+ * Names of this person's chores already done today.
+ *
+ * Two sources, because neither is complete on its own: the todo list carries
+ * completed items for stock lists, while TaskMate drops a chore from its list
+ * the moment it's ticked and records it in todays_completions instead.
+ */
+export function completedNames(person) {
+  const names = new Set();
+  for (const c of person.chores || []) {
+    if (c.status === 'completed') names.add(c.summary);
+  }
+  for (const c of person.completedToday || []) {
+    names.add(c.name);
+  }
+  return names;
+}
+
+/**
+ * How one chip renders.
+ *
+ * Matching is by name because TaskMate's calendar events carry no id that maps
+ * back to a chore. A calendar event sharing a chore's name will therefore also
+ * strike through; the cost is one cosmetic line and there is no better key.
+ *
+ * Only today can be marked. Other columns have no completion data at all —
+ * todo/item/list returns current items, todays_completions is today-scoped, and
+ * recent_completions is a count rather than a date range.
+ */
+export function chipState(event, isToday, doneNames) {
+  return {
+    complete: isToday && doneNames.has(event.summary),
+    ghost: Boolean(event.allDay),
+  };
+}
+
+/** Label naming the period the progress bars describe. */
+export function barPeriod(offsetDays, now) {
+  if (!offsetDays) return 'Today';
+  const fmt = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long' });
+  return `Week of ${fmt.format(now)}`;
+}
+
 /** Today's chore completion for the progress bars. */
 export function choreProgress(person) {
   const chores = person.chores || [];
@@ -41,6 +84,7 @@ export class FamilyHubWeek extends LitElement {
     model: { attribute: false },
     now: { attribute: false },
     tz: { attribute: false },
+    offsetDays: { attribute: false },
   };
 
   static styles = [
@@ -63,10 +107,14 @@ export class FamilyHubWeek extends LitElement {
 
       .chip { background: var(--pc); color: var(--fh-bg); font-size: 13px; font-weight: 600; padding: 4px 7px; border-radius: 5px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .chip.ghost { background: transparent; color: var(--pc); box-shadow: inset 0 0 0 1.5px var(--pc); }
+      .chip.complete { text-decoration: line-through; opacity: 0.45; }
 
       /* Four fixed columns like the mockup. auto-fit stretched three people
          across the full width and pulled each label away from its value. */
-      .bars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--fh-rule); }
+      /* The grid spans seven days while the bars describe one, so the period
+         has to be stated or the numbers read as the week's. */
+      .bars-head { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--fh-text-dim); font-weight: 600; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--fh-rule); }
+      .bars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-top: 12px; }
       .bars[data-narrow='true'] { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
       .bar-l { display: flex; justify-content: space-between; font-size: 15px; margin-bottom: 7px; color: var(--fh-chore-text); gap: 8px; }
       .bar-l b { color: var(--pc); font-family: var(--fh-mono); }
@@ -117,6 +165,7 @@ export class FamilyHubWeek extends LitElement {
         )}
         ${this.model.people.map((p) => this._personRow(p, days, tz))}
       </div>
+      <div class="bars-head">${barPeriod(this.offsetDays || 0, this.now)}</div>
       <div class="bars" data-narrow=${String(this._narrow)}>
         ${this.model.people.map((p) => this._bar(p))}
       </div>
@@ -125,6 +174,7 @@ export class FamilyHubWeek extends LitElement {
 
   _personRow(p, days, tz) {
     const buckets = bucketByDay(p.events, days, tz);
+    const done = completedNames(p);
     return html`
       <div class="rowlab" style="--pc:${p.color}">
         <div class="dot"></div><span>${p.name}</span>
@@ -132,12 +182,13 @@ export class FamilyHubWeek extends LitElement {
       ${buckets.map(
         (events, i) => html`
           <div class="cell ${days[i].isToday ? 'today' : ''}" style="--pc:${p.color}">
-            ${events.map(
-              (e) => html`<div
-                class="chip ${e.allDay ? 'ghost' : ''}"
+            ${events.map((e) => {
+              const st = chipState(e, days[i].isToday, done);
+              return html`<div
+                class="chip ${st.ghost ? 'ghost' : ''} ${st.complete ? 'complete' : ''}"
                 title=${e.summary}
-              >${e.summary}</div>`,
-            )}
+              >${e.summary}</div>`;
+            })}
           </div>
         `,
       )}
