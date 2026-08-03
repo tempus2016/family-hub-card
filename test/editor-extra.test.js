@@ -84,3 +84,31 @@ describe('editor people list', () => {
     expect('points' in emitted[0].people[0]).toBe(false);
   });
 });
+
+describe('calendar toggling', () => {
+  const base = { people: [{ name: 'Ana', calendars: ['calendar.a', 'calendar.b'], todo: 'todo.a' }] };
+
+  it('adds a calendar without dropping the others', () => {
+    const { ed, emitted } = makeEditor(base);
+    ed._toggleCalendar(0, 'calendar.c', true);
+    expect(emitted[0].people[0].calendars).toEqual(['calendar.a', 'calendar.b', 'calendar.c']);
+  });
+
+  it('removes one calendar and keeps the rest', () => {
+    const { ed, emitted } = makeEditor(base);
+    ed._toggleCalendar(0, 'calendar.a', false);
+    expect(emitted[0].people[0].calendars).toEqual(['calendar.b']);
+  });
+
+  it('drops the key entirely when the last calendar is unchecked', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', calendars: ['calendar.a'], todo: 'todo.a' }] });
+    ed._toggleCalendar(0, 'calendar.a', false);
+    expect('calendars' in emitted[0].people[0]).toBe(false);
+  });
+
+  it('starts a calendar list on a person who had none', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', todo: 'todo.a' }] });
+    ed._toggleCalendar(0, 'calendar.a', true);
+    expect(emitted[0].people[0].calendars).toEqual(['calendar.a']);
+  });
+});

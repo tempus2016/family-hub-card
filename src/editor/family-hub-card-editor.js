@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { PALETTE } from '../data/config.js';
 import { detectPeople } from './autodetect.js';
+import { probeCalendars } from './calendar-probe.js';
 
 /**
  * Visual editor.
@@ -17,6 +18,7 @@ export class FamilyHubCardEditor extends LitElement {
     hass: { attribute: false },
     _config: { state: true },
     _proposed: { state: true },
+    _calInfo: { state: true },
   };
 
   static styles = css`
@@ -39,6 +41,16 @@ export class FamilyHubCardEditor extends LitElement {
     .err { color: var(--error-color, #d64545); font-size: 13px; margin-top: 6px; }
     .detect { border: 1px dashed var(--divider-color); border-radius: 10px; padding: 12px; margin-bottom: 14px; }
     .muted { color: var(--secondary-text-color); font-size: 13px; }
+    /* A plain multi-select over nine similarly-named calendars made it far too
+       easy to replace a selection instead of extending it, with no visible
+       record of what was chosen. */
+    .cals { border: 1px solid var(--divider-color); border-radius: 8px; max-height: 168px; overflow-y: auto; padding: 4px 6px; }
+    .cal { display: flex; align-items: center; gap: 8px; min-height: 34px; font-size: 14px; }
+    .cal input { width: 18px; min-height: 18px; flex: none; }
+    .cal .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .flag { font-size: 12px; color: var(--warning-color, #b8860b); flex-shrink: 0; }
+    .flag.bad { color: var(--error-color, #d64545); }
+    .calsum { font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; }
   `;
 
   setConfig(config) {
@@ -46,6 +58,24 @@ export class FamilyHubCardEditor extends LitElement {
     // set back into their YAML; the render path applies defaults instead.
     this._config = { ...config };
     this._proposed = null;
+    this._calInfo = this._calInfo || {};
+    this._probe();
+  }
+
+  /**
+   * Check what the configured calendars actually hold, so an empty one can be
+   * flagged. Picking a calendar that turns out to have nothing in it looks
+   * identical to the card being broken.
+   */
+  async _probe() {
+    if (!this.hass) return;
+    const ids = [...new Set((this._config?.people || []).flatMap((p) => p.calendars || []))];
+    const unknown = ids.filter((id) => !this._calInfo[id]);
+    if (!unknown.length) return;
+    const found = await probeCalendars(
+      this.hass, unknown, new Date(), this.hass.config?.time_zone || 'UTC',
+    );
+    this._calInfo = { ...this._calInfo, ...found };
   }
 
   // ── emit ────────────────────────────────────────────────────────────────
@@ -120,6 +150,14 @@ export class FamilyHubCardEditor extends LitElement {
     else person[key] = value;
     people[i] = person;
     this._emit({ ...this._config, people });
+  }
+
+  /** Add or remove a single calendar, leaving the others alone. */
+  _toggleCalendar(i, id, on) {
+    const current = this._config.people[i].calendars || [];
+    const next = on ? [...current, id] : current.filter((x) => x !== id);
+    this._setPerson(i, 'calendars', next.length ? next : null);
+    this._probe();
   }
 
   _addPerson() {
@@ -272,6 +310,24 @@ export class FamilyHubCardEditor extends LitElement {
     </div>`;
   }
 
+  _calRow(personIndex, id, checked) {
+    const info = checked ? this._calInfo?.[id] : null;
+    return html`
+      <div class="cal">
+        <input type="checkbox" id=${`cal-${personIndex}-${id}`} .checked=${checked}
+          @change=${(e) => this._toggleCalendar(personIndex, id, e.target.checked)} />
+        <label class="name" for=${`cal-${personIndex}-${id}`} style="margin:0">
+          ${this.hass?.states?.[id]?.attributes?.friendly_name || id}
+        </label>
+        ${info?.error
+          ? html`<span class="flag bad">unreadable</span>`
+          : info && info.count === 0
+            ? html`<span class="flag">no events this week</span>`
+            : nothing}
+      </div>
+    `;
+  }
+
   _personRow(p, i, error) {
     const cals = Array.isArray(p.calendars) ? p.calendars : (p.calendars ? [p.calendars] : []);
     return html`
@@ -300,16 +356,13 @@ export class FamilyHubCardEditor extends LitElement {
           ${this._select('Points sensor', p.points, this._entities('sensor.'),
             (v) => this._setPerson(i, 'points', v))}
         </div>
-        <label>Calendars
-          <select multiple size="4" @change=${(e) =>
-            this._setPerson(i, 'calendars', [...e.target.selectedOptions].map((o) => o.value))}>
-            ${this._entities('calendar.').map(
-              (id) => html`<option value=${id} ?selected=${cals.includes(id)}>
-                ${this.hass?.states?.[id]?.attributes?.friendly_name || id}
-              </option>`,
-            )}
-          </select>
-        </label>
+        <label>Calendars</label>
+        <div class="cals">
+          ${this._entities('calendar.').map((id) => this._calRow(i, id, cals.includes(id)))}
+        </div>
+        <div class="calsum">
+          ${cals.length ? `${cals.length} selected` : 'None selected'}
+        </div>
         ${error ? html`<div class="err">${error}</div>` : nothing}
       </div>
     `;
