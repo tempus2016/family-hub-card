@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation Wiki
+    url: https://github.com/tempus2016/family-hub-card/wiki
+    about: Configuration reference, troubleshooting and FAQ — check here first
+  - name: 💬 Discussions
+    url: https://github.com/tempus2016/family-hub-card/discussions
+    about: Questions, ideas, and general chat about the Family Hub card
+  - name: 🧩 TaskMate
+    url: https://github.com/tempus2016/taskmate/issues
+    about: Problems with chores, points or approvals themselves belong in TaskMate

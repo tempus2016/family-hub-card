@@ -1,17 +1,41 @@
 {
   "name": "family-hub-card",
   "version": "0.1.0",
+  "description": "Home Assistant Lovelace card for a wall-mounted family tablet: today's schedule for everyone plus who owes which chore.",
   "type": "module",
+  "license": "MIT",
+  "author": "tempus2016",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tempus2016/family-hub-card.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tempus2016/family-hub-card/issues"
+  },
+  "homepage": "https://github.com/tempus2016/family-hub-card#readme",
+  "keywords": [
+    "home-assistant",
+    "lovelace",
+    "custom-card",
+    "hacs",
+    "calendar",
+    "todo",
+    "taskmate"
+  ],
   "scripts": {
     "test": "vitest run",
+    "lint": "eslint .",
     "build": "rollup -c"
   },
   "dependencies": {
     "lit": "^3.1.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
+    "eslint": "^10.8.0",
+    "globals": "^17.8.0",
     "rollup": "^4.9.0",
     "vitest": "^1.2.0"
   }

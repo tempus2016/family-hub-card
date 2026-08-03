@@ -1,3 +1,22 @@
 node_modules/
+
+# dist/ is committed on purpose: HACS serves the built card straight from the
+# repo, so the bundle has to be in the tree. Only the one built file belongs.
 dist/*
 !dist/family-hub-card.js
+
+# Test / tooling output
+coverage/
+.vitest/
+.eslintcache
+*.log
+npm-debug.log*
+
+# Scratch space for local screenshots and throwaway files
+.tmp/
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
