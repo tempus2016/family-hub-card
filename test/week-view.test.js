@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDays, bucketByDay, choreProgress } from '../src/views/week-view.js';
+import { buildDays, bucketByDay, choreProgress, completedNames, chipState, barPeriod } from '../src/views/week-view.js';
 import { localDayWindow } from '../src/data/time.js';
 
 const TZ = 'Europe/London';
@@ -94,5 +94,63 @@ describe('the seven-day fetch window', () => {
   it('still returns one day by default', () => {
     const { start, end } = localDayWindow(new Date('2026-08-03T10:00:00Z'), TZ);
     expect(end - start).toBe(24 * 3600 * 1000);
+  });
+});
+
+describe('completedNames', () => {
+  it('collects completed chores from the todo list', () => {
+    const p = { chores: [{ summary: 'Make bed', status: 'completed' }, { summary: 'Brush teeth', status: 'needs_action' }] };
+    expect([...completedNames(p)]).toEqual(['Make bed']);
+  });
+
+  it("includes TaskMate records for chores that have left the todo list", () => {
+    const p = { chores: [], completedToday: [{ name: 'Pack school bag' }] };
+    expect([...completedNames(p)]).toEqual(['Pack school bag']);
+  });
+
+  it('merges both sources without duplicating', () => {
+    const p = {
+      chores: [{ summary: 'Make bed', status: 'completed' }],
+      completedToday: [{ name: 'Make bed' }, { name: 'Dog' }],
+    };
+    expect([...completedNames(p)].sort()).toEqual(['Dog', 'Make bed']);
+  });
+
+  it('returns an empty set for a person with nothing done', () => {
+    expect(completedNames({ chores: [{ summary: 'X', status: 'needs_action' }] }).size).toBe(0);
+  });
+
+  it('tolerates a person with no chore data at all', () => {
+    expect(completedNames({}).size).toBe(0);
+  });
+});
+
+describe('chipState', () => {
+  const done = new Set(['Make bed', 'Pack school bag']);
+
+  it('marks a matching chip complete in today’s column', () => {
+    expect(chipState({ summary: 'Make bed', allDay: false }, true, done).complete).toBe(true);
+  });
+
+  it('leaves a non-matching chip alone', () => {
+    expect(chipState({ summary: 'Swimming', allDay: false }, true, done).complete).toBe(false);
+  });
+
+  it('never marks a chip complete outside today, even when the name matches', () => {
+    expect(chipState({ summary: 'Make bed', allDay: false }, false, done).complete).toBe(false);
+  });
+
+  it('keeps the all-day ghost treatment independent of completion', () => {
+    expect(chipState({ summary: 'Make bed', allDay: true }, true, done)).toEqual({ complete: true, ghost: true });
+  });
+});
+
+describe('barPeriod', () => {
+  it('reads Today on the current week', () => {
+    expect(barPeriod(0, new Date('2026-08-03T10:00:00Z'))).toBe('Today');
+  });
+
+  it('names the week when paged away', () => {
+    expect(barPeriod(7, new Date('2026-08-10T10:00:00Z'))).toMatch(/^Week of /);
   });
 });
