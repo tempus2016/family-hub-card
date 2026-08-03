@@ -144,17 +144,28 @@ export class HubData {
     }
 
     const failures = [...cal.failures, ...todo.failures];
-    this.model.staleSince = failures.length ? (this.model.staleSince || now) : null;
-    this.model.failures = failures;
+    this.model = {
+      ...this.model,
+      staleSince: failures.length ? (this.model.staleSince || now) : null,
+      failures,
+    };
 
     this._rebuild(hass);
     this.onChange();
   }
 
+  /**
+   * Rebuilds `model` as a NEW object rather than mutating it.
+   *
+   * Lit dirty-checks properties with `!==`, so a mutated-in-place model never
+   * registers as changed and a child view never re-renders. Agenda and week hid
+   * this by also receiving a fresh `now` Date each render; columns takes no such
+   * prop and froze on its first, empty render.
+   */
   _rebuild(hass) {
     const completions = readCompletions(hass, this.config.taskmateChores);
 
-    this.model.people = this.config.people.map((p) => {
+    const people = this.config.people.map((p) => {
       const points = readPoints(hass, p);
       const withChild = { ...p, taskmateChildId: points?.childId || null };
       return {
@@ -166,6 +177,8 @@ export class HubData {
         failures: this._failuresByPerson[p.id] || [],
       };
     });
+
+    this.model = { ...this.model, people };
   }
 
   start() {
@@ -206,7 +219,7 @@ export class HubData {
     } catch (err) {
       logFailure(`complete:${person.todo}`, `could not complete "${chore.summary}" on ${person.todo}`, err);
       chore.status = previous;
-      this.model.failures = [...this.model.failures, person.todo];
+      this.model = { ...this.model, failures: [...this.model.failures, person.todo] };
       this._rebuild(this.getHass());
       this.onChange();
     }
