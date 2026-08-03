@@ -153,7 +153,12 @@ export class FamilyHubWeek extends LitElement {
   render() {
     if (!this.model) return nothing;
     const tz = this.tz || 'UTC';
-    const days = buildDays(this.now, tz);
+    // `now` is already the paged date, so today's highlight and completion
+    // marking only apply when the offset is zero.
+    const days = buildDays(this.now, tz).map((d, i) => ({
+      ...d,
+      isToday: d.isToday && !this.offsetDays && i === 0,
+    }));
 
     return html`
       <div class="grid7" data-narrow=${String(this._narrow)}>
@@ -196,6 +201,16 @@ export class FamilyHubWeek extends LitElement {
   }
 
   _bar(p) {
+    // Paged away there is no completion data for that week, and a 0% track
+    // reads as failure rather than "not yet" — so show the count alone.
+    if (this.offsetDays) {
+      const due = (p.events || []).length;
+      return html`
+        <div style="--pc:${p.color}">
+          <div class="bar-l"><span>${p.name}</span><b>${due} due</b></div>
+        </div>
+      `;
+    }
     const { done, total, pct } = choreProgress(p);
     return html`
       <div style="--pc:${p.color}">

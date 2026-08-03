@@ -79,6 +79,15 @@ describe('normaliseConfig', () => {
     expect(() => normaliseConfig({ ...minimal, theme: 'neon' })).toThrow(/theme/i);
   });
 
+  it('defaults return_to_today and clamps it to a floor', () => {
+    expect(normaliseConfig(minimal).returnToToday).toBe(120);
+    expect(normaliseConfig({ ...minimal, return_to_today: 5 }).returnToToday).toBe(10);
+  });
+
+  it('allows return_to_today of 0 to disable auto-return', () => {
+    expect(normaliseConfig({ ...minimal, return_to_today: 0 }).returnToToday).toBe(0);
+  });
+
   it('accepts columns and week without throwing', () => {
     expect(normaliseConfig({ ...minimal, view: 'week' }).view).toBe('week');
   });

@@ -59,16 +59,26 @@ function localMidnight(date, tz) {
   return corrected;
 }
 
+/** Step one local day from `from`, in either direction, staying on midnight. */
+function stepDay(from, tz, forward) {
+  const nudge = forward ? 36 * 3600 * 1000 : -12 * 3600 * 1000;
+  return localMidnight(new Date(from.getTime() + nudge), tz);
+}
+
 /**
- * Local midnight to local midnight, `days` later. Stepping a day at a time and
- * re-deriving midnight each time keeps the window exact across a DST change —
- * adding `days * 24h` would drift by an hour through a transition.
+ * Local midnight to local midnight, `days` later, optionally shifted by
+ * `offsetDays`. Both the offset and the span step a day at a time and re-derive
+ * midnight each step — adding `n * 24h` drifts by an hour through a DST change,
+ * which is what the transition tests exist to catch.
  */
-export function localDayWindow(now, tz, days = 1) {
-  const start = localMidnight(now, tz);
+export function localDayWindow(now, tz, days = 1, offsetDays = 0) {
+  let start = localMidnight(now, tz);
+  for (let i = 0; i < Math.abs(offsetDays); i += 1) {
+    start = stepDay(start, tz, offsetDays > 0);
+  }
   let end = start;
   for (let i = 0; i < days; i += 1) {
-    end = localMidnight(new Date(end.getTime() + 36 * 3600 * 1000), tz);
+    end = stepDay(end, tz, true);
   }
   return { start, end };
 }

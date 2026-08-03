@@ -39,7 +39,7 @@ export function resolveSubtitle(hass, subtitle) {
 }
 
 class FamilyHubCard extends LitElement {
-  static properties = { _tick: { state: true } };
+  static properties = { _tick: { state: true }, _offset: { state: true } };
 
   static styles = [
     tokens,
@@ -69,6 +69,10 @@ class FamilyHubCard extends LitElement {
       .sub { font-size: 15px; color: var(--fh-text-dim); margin-top: 3px; }
       .meta { display: flex; align-items: center; gap: 18px; font-size: 19px; color: var(--fh-text-mute); flex-shrink: 0; }
       .clock { font-size: 44px; font-weight: 300; letter-spacing: -1.5px; color: var(--fh-text-strong); font-variant-numeric: tabular-nums; line-height: 1; }
+      .nav { display: flex; align-items: center; gap: 6px; }
+      .navbtn { min-width: var(--fh-touch); min-height: var(--fh-touch); border-radius: 10px; border: none; background: none; color: var(--fh-text-mute); font-size: 22px; line-height: 1; cursor: pointer; }
+      .navbtn:hover { background: var(--fh-surface); color: var(--fh-text); }
+      .today { min-height: 32px; padding: 0 12px; border-radius: 8px; border: none; background: var(--fh-surface); color: var(--fh-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 6px; }
       .addbtn { min-width: var(--fh-touch); min-height: var(--fh-touch); border-radius: 50%; border: none; background: var(--fh-surface); color: var(--fh-text); font-size: 26px; line-height: 1; cursor: pointer; flex-shrink: 0; }
       .addbtn:hover { background: var(--fh-chip); }
       .loading { padding: 24px 26px; color: var(--fh-text-dim); font-size: 16px; }
@@ -164,6 +168,7 @@ class FamilyHubCard extends LitElement {
     super.disconnectedCallback();
     this._ro?.disconnect();
     clearTimeout(this._tickTimer);
+    clearTimeout(this._returnTimer);
     window.removeEventListener('online', this._onOnline);
     this._hub?.stop();
   }
@@ -205,6 +210,43 @@ class FamilyHubCard extends LitElement {
     }).format(now);
   }
 
+  /** Days per paging step: a week for the grid, a day for the timeline. */
+  get _pageStep() {
+    return this._effectiveView === 'week' ? 7 : 1;
+  }
+
+  /** The date the header names and the add dialog prefills. */
+  _viewDate(now) {
+    return new Date(now.getTime() + (this._offset || 0) * 24 * 3600 * 1000);
+  }
+
+  _page(direction) {
+    this._setOffset((this._offset || 0) + direction * this._pageStep);
+  }
+
+  _goToday() {
+    this._setOffset(0);
+  }
+
+  _setOffset(offset) {
+    this._offset = offset;
+    if (this._hub) this._hub.startOffset = offset;
+    this._armReturn();
+    this.requestUpdate();
+  }
+
+  /**
+   * Without this the wall tablet stays parked on whatever week someone last
+   * looked at — a display confidently showing the wrong dates to everyone who
+   * walks past, which is worse than showing nothing.
+   */
+  _armReturn() {
+    clearTimeout(this._returnTimer);
+    const secs = this._config?.returnToToday;
+    if (!secs || !this._offset) return;
+    this._returnTimer = setTimeout(() => this._goToday(), secs * 1000);
+  }
+
   _onChoreTap(e) {
     const { personId, choreId } = e.detail;
     this._hub?.complete(personId, choreId);
@@ -227,7 +269,14 @@ class FamilyHubCard extends LitElement {
       <ha-card>
         <div class="head">
           <div>
-            <div class="date">${this._headerDate(now)}</div>
+            <div class="nav">
+              <button class="navbtn" aria-label="Previous" @click=${() => this._page(-1)}>‹</button>
+              <div class="date">${this._headerDate(this._viewDate(now))}</div>
+              <button class="navbtn" aria-label="Next" @click=${() => this._page(1)}>›</button>
+            </div>
+            ${this._offset
+              ? html`<button class="today" @click=${() => this._goToday()}>Today</button>`
+              : nothing}
             ${subtitle ? html`<div class="sub">${subtitle}</div>` : nothing}
             ${!IMPLEMENTED_VIEWS.includes(this._config.view)
               ? html`<div class="fallback">
@@ -260,18 +309,20 @@ class FamilyHubCard extends LitElement {
         <family-hub-add-dialog
           .hass=${this._hass}
           .config=${this._config}
-          .date=${now}
+          .date=${this._viewDate(now)}
           @created=${() => this._hub?.refresh()}
         ></family-hub-add-dialog>
         ${this._effectiveView === 'week'
           ? html`<family-hub-week
               .model=${model}
-              .now=${now}
+              .now=${this._viewDate(now)}
+              .offsetDays=${this._offset || 0}
               .tz=${this._hass.config?.time_zone || 'UTC'}
             ></family-hub-week>`
           : html`<family-hub-agenda
               .model=${model}
-              .now=${now}
+              .now=${this._viewDate(now)}
+              .readOnly=${Boolean(this._offset)}
               .confirmWindow=${this._config.confirmWindow}
               @chore-tap=${(e) => this._onChoreTap(e)}
             ></family-hub-agenda>`}

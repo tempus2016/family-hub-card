@@ -56,6 +56,7 @@ export function normaliseConfig(raw) {
     view,
     theme,
     refreshInterval: Math.max(60, Number(cfg.refresh_interval ?? 300)),
+    returnToToday: cfg.return_to_today === 0 ? 0 : Math.max(10, Number(cfg.return_to_today ?? 120)),
     choreFilter: cfg.chore_filter === 'all' ? 'all' : 'today',
     confirmWindow: cfg.confirm_window === 0 ? 0 : Number(cfg.confirm_window ?? 3),
     taskmateChores: cfg.taskmate_chores || null,

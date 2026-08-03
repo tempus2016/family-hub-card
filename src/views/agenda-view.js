@@ -34,6 +34,7 @@ export class FamilyHubAgenda extends LitElement {
     model: { attribute: false },
     now: { attribute: false },
     confirmWindow: { attribute: false },
+    readOnly: { attribute: false },
     _pending: { state: true },
   };
 
@@ -68,6 +69,7 @@ export class FamilyHubAgenda extends LitElement {
       .pts .today { font-size: 12px; color: var(--fh-text-mute); margin-top: 3px; text-transform: none; letter-spacing: 0; }
 
       .chores { margin-top: 6px; border-top: 1px solid var(--fh-rule-soft); padding-top: 2px; }
+      :host([data-readonly]) .tap { cursor: default; }
       .chore { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--fh-chore-text); }
       .chore .name { flex: 1; min-width: 0; }
       .chore.done .name, .chore.pending .name { text-decoration: line-through; color: var(--fh-text-dim); }
@@ -133,6 +135,9 @@ export class FamilyHubAgenda extends LitElement {
    * completion would work on stock lists and silently fail on TaskMate.
    */
   _tap(personId, choreId) {
+    // Ticking only ever applies to today's list, so a paged view must not look
+    // tappable and silently do nothing.
+    if (this.readOnly) return;
     const key = `${personId}:${choreId}`;
     const existing = this._pending.get(key);
     if (existing) {
@@ -276,7 +281,7 @@ export class FamilyHubAgenda extends LitElement {
           aria-checked=${kind === 'done' || pending ? 'true' : 'false'}
           aria-label=${`Complete ${c.summary} for ${p.name}`}
           @click=${() => this._tap(p.id, c.id)}
-          ?disabled=${kind === 'done'}
+          ?disabled=${kind === 'done' || this.readOnly}
         >
           <span
             class="box ${pending || kind === 'done' ? 'filled' : ''} ${pending ? 'ring' : ''}"
