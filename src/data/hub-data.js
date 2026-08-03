@@ -2,6 +2,7 @@ import { fetchEvents } from './calendar-source.js';
 import { fetchChores, completeChore } from './todo-source.js';
 import { readPoints, readCompletions, completionsForPerson } from './taskmate-source.js';
 import { msUntilNextLocalMidnight } from './time.js';
+import { logFailure } from './log.js';
 
 export class HubData {
   constructor({ config, getHass, getNow, onChange, schedule }) {
@@ -173,7 +174,8 @@ export class HubData {
 
     try {
       await completeChore(this.getHass(), person.todo, choreId);
-    } catch {
+    } catch (err) {
+      logFailure(`complete:${person.todo}`, `could not complete "${chore.summary}" on ${person.todo}`, err);
       chore.status = previous;
       this.model.failures = [...this.model.failures, person.todo];
       this._rebuild(this.getHass());

@@ -66,6 +66,18 @@ class FamilyHubCard extends LitElement {
       .meta { display: flex; align-items: center; gap: 18px; font-size: 19px; color: var(--fh-text-mute); flex-shrink: 0; }
       .clock { font-size: 44px; font-weight: 300; letter-spacing: -1.5px; color: var(--fh-text-strong); font-variant-numeric: tabular-nums; line-height: 1; }
       .loading { padding: 24px 26px; color: var(--fh-text-dim); font-size: 16px; }
+      /* A console warning is invisible on a wall tablet, so say it on the card. */
+      .fallback {
+        font-size: 13px;
+        color: var(--warning-color, #FFB84A);
+        margin-top: 6px;
+      }
+      .fallback code {
+        font-family: var(--fh-mono);
+        background: var(--fh-chip);
+        border-radius: 5px;
+        padding: 1px 6px;
+      }
     `,
   ];
 
@@ -183,6 +195,11 @@ class FamilyHubCard extends LitElement {
               ${new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}
             </div>
             ${subtitle ? html`<div class="sub">${subtitle}</div>` : nothing}
+            ${this._config.view !== 'agenda'
+              ? html`<div class="fallback">
+                  <code>${this._config.view}</code> view isn't built yet — showing agenda
+                </div>`
+              : nothing}
             ${model.staleSince
               ? html`<div class="stale">
                   Last updated

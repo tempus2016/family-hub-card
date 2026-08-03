@@ -1,4 +1,5 @@
 import { localDayWindow } from './time.js';
+import { logFailure, logRecovery } from './log.js';
 
 /**
  * A calendar entity's state only ever describes the current or next event, so
@@ -48,8 +49,10 @@ export async function fetchEvents(hass, people, now, tz) {
     jobs.map(async ({ person, entity }) => {
       try {
         const raw = await hass.callApi('GET', `calendars/${entity}?${qs}`);
+        logRecovery(`calendar:${entity}`, `${entity} is readable again`);
         return (raw || []).map((r) => normaliseEvent(r, person.id, tz));
-      } catch {
+      } catch (err) {
+        logFailure(`calendar:${entity}`, `could not read ${entity}`, err);
         failures.push(entity);
         (failuresByPerson[person.id] ||= []).push(entity);
         return [];
