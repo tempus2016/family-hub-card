@@ -177,6 +177,44 @@ describe('HubData isolation of failures', () => {
   });
 });
 
+describe('HubData.windowDays', () => {
+  it('defaults to one day for agenda and seven for week', () => {
+    const { hub: agenda } = makeHub(cfg, makeHass());
+    expect(agenda.windowDays).toBe(1);
+    const { hub: week } = makeHub({ ...cfg, view: 'week' }, makeHass());
+    expect(week.windowDays).toBe(7);
+  });
+
+  it('refetches at the new width when the card collapses week to agenda', async () => {
+    const paths = [];
+    const hass = makeHass({ callApi: async (_m, p) => { paths.push(p); return []; } });
+    const { hub } = makeHub({ ...cfg, view: 'week' }, hass);
+    await hub.refresh();
+
+    hub.windowDays = 1;
+    await new Promise((r) => setTimeout(r, 0));
+
+    const span = (p) => {
+      const q = new URLSearchParams(p.split('?')[1]);
+      return new Date(q.get('end')) - new Date(q.get('start'));
+    };
+    expect(span(paths[0])).toBe(7 * 24 * 3600 * 1000);
+    expect(span(paths[paths.length - 1])).toBe(24 * 3600 * 1000);
+  });
+
+  it('ignores a set to the value already in force', async () => {
+    let calls = 0;
+    const hass = makeHass({ callApi: async () => { calls += 1; return []; } });
+    const { hub } = makeHub({ ...cfg, view: 'week' }, hass);
+    hub.windowDays = 7;
+    await new Promise((r) => setTimeout(r, 0));
+    const before = calls;
+    hub.windowDays = 7;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toBe(before);
+  });
+});
+
 describe('HubData.hassChanged', () => {
   it('refetches when a watched todo entity changes', async () => {
     let calls = 0;

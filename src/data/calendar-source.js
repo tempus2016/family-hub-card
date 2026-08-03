@@ -32,8 +32,8 @@ export function normaliseEvent(raw, personId, tz) {
   };
 }
 
-export async function fetchEvents(hass, people, now, tz) {
-  const { start, end } = localDayWindow(now, tz);
+export async function fetchEvents(hass, people, now, tz, days = 1) {
+  const { start, end } = localDayWindow(now, tz, days);
   const qs = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
 
   const jobs = [];

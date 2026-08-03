@@ -59,10 +59,17 @@ function localMidnight(date, tz) {
   return corrected;
 }
 
-export function localDayWindow(now, tz) {
+/**
+ * Local midnight to local midnight, `days` later. Stepping a day at a time and
+ * re-deriving midnight each time keeps the window exact across a DST change —
+ * adding `days * 24h` would drift by an hour through a transition.
+ */
+export function localDayWindow(now, tz, days = 1) {
   const start = localMidnight(now, tz);
-  const nextDay = new Date(start.getTime() + 36 * 3600 * 1000);
-  const end = localMidnight(nextDay, tz);
+  let end = start;
+  for (let i = 0; i < days; i += 1) {
+    end = localMidnight(new Date(end.getTime() + 36 * 3600 * 1000), tz);
+  }
   return { start, end };
 }
 
