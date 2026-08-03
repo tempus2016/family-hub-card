@@ -1,0 +1,143 @@
+name: Feature Request
+description: Suggest a new feature or improvement for the Family Hub card
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+assignees:
+  - tempus2016
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! The more context you give, the easier it is to judge the approach.
+
+        Before submitting, please search [existing issues](https://github.com/tempus2016/family-hub-card/issues) to check this hasn't already been requested.
+
+        One thing worth knowing up front: this card is designed to be read from across a room. Requests that add a third type size, a denser layout, or more chrome will usually be pushed back on — not because they're bad ideas, but because legibility at 2–3 metres is the whole point.
+
+  # ── Feature Summary ───────────────────────────────────────────────────────────
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: A short, clear summary of what you're requesting.
+      placeholder: |
+        e.g. Let each person's chore panel be collapsed once everything on it is done, so the wall display isn't cluttered by the evening.
+    validations:
+      required: true
+
+  # ── Problem / Motivation ─────────────────────────────────────────────────────
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Describe the problem you're hitting. Good feature requests start with a real problem, not just a solution.
+      placeholder: |
+        e.g. By 7pm all four kids' panels are full of ticked-off chores, which pushes the timeline off screen on our 10" tablet. The information I actually want in the evening is tomorrow's first event.
+    validations:
+      required: true
+
+  # ── Proposed Solution ─────────────────────────────────────────────────────────
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: |
+        How do you imagine this working? Include config options, layout, and behaviour — whatever helps paint the picture. Mockups and sketches are very welcome.
+      placeholder: |
+        e.g. A `collapse_done: true` option. When every chore for a person is complete, their panel shrinks to one row: avatar, name, and a tick. Tapping it expands the full list again.
+    validations:
+      required: true
+
+  # ── Area ─────────────────────────────────────────────────────────────────────
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this relate to?
+      description: Select all that apply.
+      multiple: true
+      options:
+        - Header (date / clock / weather / subtitle)
+        - Agenda view
+        - Columns view (per-person columns — not yet implemented)
+        - Week view (not yet implemented)
+        - Chore list / completion flow
+        - Undo window behaviour
+        - Points / TaskMate integration
+        - New data source (something other than calendar/todo)
+        - Theming / colours / typography
+        - Layout / responsiveness
+        - Accessibility
+        - Visual editor
+        - Configuration schema
+        - Documentation / wiki
+        - Other / not sure
+    validations:
+      required: true
+
+  # ── Display context ───────────────────────────────────────────────────────────
+
+  - type: input
+    id: display
+    attributes:
+      label: What is the card displayed on?
+      description: Screen size and viewing distance are the two things that decide most layout questions here.
+      placeholder: e.g. 10" wall tablet in the kitchen, viewed from ~3m
+    validations:
+      required: false
+
+  - type: input
+    id: people_count
+    attributes:
+      label: How many people are on your card?
+      placeholder: e.g. 4 (2 adults, 2 children)
+    validations:
+      required: false
+
+  # ── Alternatives ─────────────────────────────────────────────────────────────
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: |
+        Have you found a workaround — a template sensor, card-mod CSS, a second dashboard view? Knowing what almost works is genuinely useful.
+
+  # ── Priority ──────────────────────────────────────────────────────────────────
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this to you?
+      options:
+        - Nice to have — would improve the experience
+        - Important — a gap that affects daily use
+        - Critical — a blocker for using the card properly
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Additional Context
+      description: |
+        Anything else that helps explain your situation — screenshots of your current dashboard, mockups of what you'd like, how your household actually uses the card.
+
+        You can drag and drop images directly into this box.
+
+  # ── Checklist ─────────────────────────────────────────────────────────────────
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before Submitting
+      options:
+        - label: I have searched [existing issues](https://github.com/tempus2016/family-hub-card/issues) and this has not already been requested
+          required: true
+        - label: I have checked the [wiki](https://github.com/tempus2016/family-hub-card/wiki) and this feature doesn't already exist
+          required: true

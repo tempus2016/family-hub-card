@@ -1,0 +1,228 @@
+name: Bug Report
+description: Report a bug or unexpected behaviour in the Family Hub card
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees:
+  - tempus2016
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible — it helps fix issues faster.
+
+        Before submitting, please check the [Troubleshooting wiki](https://github.com/tempus2016/family-hub-card/wiki/Troubleshooting) and [existing issues](https://github.com/tempus2016/family-hub-card/issues).
+
+        This card only **reads** calendars and **ticks** to-do items. If a chore is missing, priced wrong, or stuck awaiting approval, that's a [TaskMate](https://github.com/tempus2016/taskmate/issues) issue, not a card issue.
+
+  # ── Environment ──────────────────────────────────────────────────────────────
+
+  - type: input
+    id: card_version
+    attributes:
+      label: Family Hub Card Version
+      description: Found in HACS → Frontend → Family Hub Card, or the release tag you installed
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant Version
+      description: Found in Settings → System → About
+      placeholder: e.g. 2026.3.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Installation Method
+      options:
+        - HACS (custom repository)
+        - Manual (copied family-hub-card.js to www/)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: lovelace_mode
+    attributes:
+      label: Lovelace Mode
+      description: Found in Settings → Dashboards → ⋮ menu → Resources
+      options:
+        - Storage (default — managed via UI)
+        - YAML (configuration.yaml)
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Where are you seeing this?
+      description: Select all that apply — a bug on one surface only is a useful clue.
+      multiple: true
+      options:
+        - Wall tablet (Fully Kiosk / browser)
+        - Android tablet
+        - iPad
+        - Desktop Chrome / Edge
+        - Desktop Firefox
+        - Desktop Safari
+        - HA Companion app (Android)
+        - HA Companion app (iOS)
+    validations:
+      required: true
+
+  # ── Bug Description ───────────────────────────────────────────────────────────
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. What did you see?
+      placeholder: |
+        e.g. All-day events from Ana's work calendar show up under the wrong person's colour bar.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: |
+        e.g. Each event's colour bar should match the person whose calendar it came from.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this? Be as specific as possible.
+      placeholder: |
+        1. Configure two people, each with one calendar
+        2. Add an all-day event to the second person's calendar
+        3. Reload the dashboard
+        4. The all-day row shows the first person's colour
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducible
+    attributes:
+      label: Is this reproducible?
+      options:
+        - Always — happens every time
+        - Sometimes — happens intermittently
+        - Once — only happened one time
+    validations:
+      required: true
+
+  # ── Affected Area ─────────────────────────────────────────────────────────────
+
+  - type: dropdown
+    id: affected_area
+    attributes:
+      label: Affected Area
+      description: Which part of the card is affected? Select all that apply.
+      multiple: true
+      options:
+        - Header (date / clock / weather / subtitle)
+        - Agenda timeline (events)
+        - Now-line position
+        - All-day events
+        - Chore list / tapping a chore
+        - Undo window (confirm_window)
+        - Points balance display
+        - TaskMate completed-today / awaiting-approval rows
+        - Refresh / stale data / "Last updated"
+        - Error notices ("Can't read …")
+        - Visual editor
+        - Card config validation (setConfig errors)
+        - Layout / responsiveness (narrow vs wide)
+        - Theming / colours / contrast
+        - Timezone or midnight rollover
+        - Installation / HACS / resource loading
+        - Other
+    validations:
+      required: true
+
+  # ── Card configuration ────────────────────────────────────────────────────────
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Card YAML Configuration
+      description: |
+        Paste the full YAML for the card. Redact entity names if you prefer, but keep the structure intact.
+      render: yaml
+      placeholder: |
+        type: custom:family-hub-card
+        view: agenda
+        confirm_window: 3
+        people:
+          - name: Ana
+            calendars: [calendar.ana_work]
+            todo: todo.ana_chores
+    validations:
+      required: true
+
+  # ── Entity state ──────────────────────────────────────────────────────────────
+
+  - type: textarea
+    id: entity_state
+    attributes:
+      label: Entity State (if relevant)
+      description: |
+        If the bug involves wrong data, paste the relevant entity from Developer Tools → States.
+
+        Useful ones: the `calendar.*` entity, the `todo.*` entity, or the TaskMate chores sensor's `todays_completions` attribute.
+      render: json
+      placeholder: |
+        {
+          "entity_id": "todo.ana_chores",
+          "state": "3",
+          "attributes": {}
+        }
+
+  # ── Browser console ───────────────────────────────────────────────────────────
+
+  - type: textarea
+    id: console_errors
+    attributes:
+      label: Browser Console Errors
+      description: |
+        Open browser DevTools (F12) → Console, hard-refresh the dashboard, reproduce the issue, and paste any red errors.
+
+        The Network tab is also useful here: a failing `GET /api/calendars/...` explains most "nothing shows up" reports.
+      render: text
+      placeholder: |
+        Uncaught TypeError: Cannot read properties of undefined ...
+        at family-hub-card.js:355
+
+  # ── Additional Context ────────────────────────────────────────────────────────
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Anything else that might be relevant — screenshots of the card, screen size, the calendar integration in use (Google, CalDAV, Local Calendar…), recent changes to your setup.
+
+        You can drag and drop images directly into this box.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before Submitting
+      options:
+        - label: I have checked the [Troubleshooting wiki](https://github.com/tempus2016/family-hub-card/wiki/Troubleshooting) and my issue is not covered there
+          required: true
+        - label: I have searched [existing issues](https://github.com/tempus2016/family-hub-card/issues) and this is not a duplicate
+          required: true
+        - label: I have hard-refreshed the browser (Ctrl/Cmd + Shift + R) and the issue still happens
+          required: true
+        - label: I am running the latest release of the card
+          required: false

@@ -1,0 +1,93 @@
+name: Announce Release in Discussions
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    # Skip pre-releases entirely — only stable releases get a discussion thread.
+    # Without this, every -alpha.N / -beta.N pushed for testing posts noise.
+    if: github.event.release.prerelease == false
+    permissions:
+      discussions: write
+
+    steps:
+      - name: Create Discussion Announcement
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const release = context.payload.release;
+            const name = release.name || release.tag_name;
+            const body = release.body || '_No release notes provided._';
+            const url = release.html_url;
+
+            const discussionBody = [
+              `## 🚀 New Release: ${name}`,
+              ``,
+              `> **[View full release and download on GitHub](${url})**`,
+              ``,
+              `---`,
+              ``,
+              body,
+              ``,
+              `---`,
+              ``,
+              `### Upgrading`,
+              ``,
+              `Update via **HACS** (Frontend → Family Hub Card → Update), or download \`family-hub-card.js\` from the [release](${url}) and replace the copy in your \`www/\` directory.`,
+              ``,
+              `After updating, **hard-refresh** the dashboard (Ctrl/Cmd + Shift + R) — browsers cache the card module aggressively, and a soft reload will keep serving the old one.`,
+              ``,
+              `---`,
+              ``,
+              `💬 **Questions or issues with this release?** Reply below or [open an issue](https://github.com/${context.repo.owner}/${context.repo.repo}/issues/new/choose).`,
+            ].join('\n');
+
+            // Find the Announcements category, falling back to General.
+            const categoriesResult = await github.graphql(`
+              query($owner: String!, $repo: String!) {
+                repository(owner: $owner, name: $repo) {
+                  discussionCategories(first: 20) { nodes { id name } }
+                }
+              }
+            `, { owner: context.repo.owner, repo: context.repo.repo });
+
+            const categories = categoriesResult.repository.discussionCategories.nodes;
+            const category =
+              categories.find(c => c.name === 'Announcements') ||
+              categories.find(c => c.name === 'General');
+
+            if (!category) {
+              core.setFailed('No Announcements or General discussion category found. Enable Discussions and create one.');
+              return;
+            }
+
+            const repoResult = await github.graphql(`
+              query($owner: String!, $repo: String!) {
+                repository(owner: $owner, name: $repo) { id }
+              }
+            `, { owner: context.repo.owner, repo: context.repo.repo });
+
+            const result = await github.graphql(`
+              mutation($repoId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
+                createDiscussion(input: {
+                  repositoryId: $repoId, categoryId: $categoryId, title: $title, body: $body
+                }) { discussion { url } }
+              }
+            `, {
+              repoId: repoResult.repository.id,
+              categoryId: category.id,
+              title: `🚀 Release: ${name}`,
+              body: discussionBody,
+            });
+
+            const discussionUrl = result.createDiscussion.discussion.url;
+            console.log(`Discussion created: ${discussionUrl}`);
+
+            await core.summary
+              .addHeading('Release Announcement Created')
+              .addLink(`🚀 Release: ${name}`, discussionUrl)
+              .write();

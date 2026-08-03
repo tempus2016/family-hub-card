@@ -1,5 +1,6 @@
 {
   "name": "Family Hub Card",
+  "homeassistant": "2024.1.0",
   "filename": "family-hub-card.js",
   "render_readme": true
 }

@@ -1,20 +1,47 @@
 name: Release
 
+# Re-runs the full gate against the tagged commit, then attaches the built card
+# to the release. HACS installs a plugin from the release asset when one is
+# present, so this asset is what users actually download.
+
 on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+
 jobs:
   build:
+    name: Build and attach card
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: '20'
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "20"
+          cache: npm
+
       - run: npm ci
+
+      - run: npm run lint
+
       - run: npm test
+
       - run: npm run build
-      - uses: softprops/action-gh-release@v2
+
+      - name: Fail if the tagged dist/ was stale
+        run: |
+          if ! git diff --quiet -- dist/; then
+            echo "::error::The tagged commit's dist/ does not match a fresh build. Rebuild, commit, and re-tag."
+            git diff --stat -- dist/
+            exit 1
+          fi
+
+      - name: Attach card to release
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/family-hub-card.js

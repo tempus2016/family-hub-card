@@ -6,7 +6,10 @@ import { isSameLocalDay } from './time.js';
  * entities, so this one path serves both stock lists and TaskMate.
  */
 
-function parseDue(due, tz) {
+// No timezone argument on purpose: the midday anchor below makes a date-only
+// due date timezone-independent, and a datetime due date already carries its
+// own offset.
+function parseDue(due) {
   if (!due) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(due)) {
     const [y, m, d] = due.split('-').map(Number);
@@ -22,7 +25,7 @@ export function filterChores(items, filter, now, tz) {
       id: it.uid,
       summary: it.summary || '',
       status: it.status === 'completed' ? 'completed' : 'needs_action',
-      due: parseDue(it.due, tz),
+      due: parseDue(it.due),
     }))
     .filter((c) => {
       if (filter === 'all') return true;

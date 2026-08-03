@@ -1,0 +1,54 @@
+# Path-based PR labels, applied by .github/workflows/labeler.yml (actions/labeler v5+).
+# Labels referenced here must exist — they're defined in .github/labels.yml.
+
+card:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/family-hub-card.js
+
+data-layer:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/data/**
+
+views:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/views/**
+
+editor:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/editor/**
+
+styles:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/styles/**
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - test/**
+          - vitest.config.js
+
+build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - rollup.config.js
+          - dist/**
+          - hacs.json
+          - package.json
+          - package-lock.json
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - docs/**
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - eslint.config.js
