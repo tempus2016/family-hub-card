@@ -23,6 +23,16 @@ describe('localDayWindow', () => {
     expect(end.toISOString()).toBe('2026-01-16T00:00:00.000Z');
   });
 
+  it('lands on exact midnight when now carries milliseconds', () => {
+    // Regression: tzOffsetMs compared a second-precision wall clock against a
+    // millisecond-precision timestamp, so the window ended a few hundred ms
+    // after local midnight and admitted the first instant of the next day.
+    const now = new Date('2026-08-03T14:30:00.246Z');
+    const { start, end } = localDayWindow(now, TZ);
+    expect(start.toISOString()).toBe('2026-08-02T23:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-08-03T23:00:00.000Z');
+  });
+
   it('produces a 23-hour window on the spring DST transition', () => {
     const now = new Date('2026-03-29T12:00:00Z');
     const { start, end } = localDayWindow(now, TZ);
