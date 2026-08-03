@@ -88,6 +88,20 @@ describe('fetchEvents', () => {
     expect(events.map((e) => e.summary)).toEqual(['Today early']);
   });
 
+  it("drops tomorrow's all-day event when now carries milliseconds", async () => {
+    // Observed live: every next-day all-day chore rendered on today's timeline
+    // because the window end sat a few hundred ms past local midnight.
+    const msNow = new Date('2026-08-03T06:50:00.246Z');
+    const hass = {
+      callApi: async () => [
+        { summary: 'Today', start: { date: '2026-08-03' }, end: { date: '2026-08-04' } },
+        { summary: 'Tomorrow', start: { date: '2026-08-04' }, end: { date: '2026-08-05' } },
+      ],
+    };
+    const { events } = await fetchEvents(hass, [{ id: 'ana', calendars: ['calendar.ana'] }], msNow, TZ);
+    expect(events.map((e) => e.summary)).toEqual(['Today']);
+  });
+
   it('keeps an event that started yesterday and is still running', async () => {
     const hass = {
       callApi: async () => [

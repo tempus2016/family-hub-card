@@ -30,7 +30,12 @@ function tzOffsetMs(date, tz) {
     Number(parts.minute),
     Number(parts.second),
   );
-  return asUTC - date.getTime();
+  // `asUTC` is second-precision (formatToParts has no ms field), so compare it
+  // against a ms-truncated timestamp. Subtracting the raw getTime() folds the
+  // sub-second remainder into the offset, which pushes every derived midnight
+  // late by that many ms — enough for the first instant of the next day to fall
+  // inside today's window.
+  return asUTC - (date.getTime() - date.getMilliseconds());
 }
 
 export function localParts(date, tz) {
