@@ -1,4 +1,5 @@
 import { isSameLocalDay } from './time.js';
+import { logFailure, logRecovery } from './log.js';
 
 /**
  * A todo entity's state is its outstanding count, so any tick changes state
@@ -46,11 +47,13 @@ export async function fetchChores(hass, people, filter, now, tz) {
       .map(async (p) => {
         try {
           const res = await hass.callWS({ type: 'todo/item/list', entity_id: p.todo });
+          logRecovery(`todo:${p.todo}`, `${p.todo} is readable again`);
           choresByPerson[p.id] = filterChores(res?.items, filter, now, tz).map((c) => ({
             ...c,
             personId: p.id,
           }));
-        } catch {
+        } catch (err) {
+          logFailure(`todo:${p.todo}`, `could not list ${p.todo}`, err);
           failures.push(p.todo);
           (failuresByPerson[p.id] ||= []).push(p.todo);
           choresByPerson[p.id] = [];
