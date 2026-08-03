@@ -11,6 +11,17 @@ it off.
 
 Works with any `calendar.*` and `todo.*` entities. No cloud, no account.
 
+![Family Hub Card on a wall tablet](images/agenda-tablet.png)
+
+Everyone's day in one timeline with a live "now" line, and each person's
+outstanding chores beside it. Tapping a chore ticks it off, with a few seconds
+to undo before anything is sent.
+
+On a phone the chore panel drops below the timeline, so the same dashboard works
+on the wall and in your pocket:
+
+<img src="images/agenda-phone.png" alt="Family Hub Card at phone width" width="360">
+
 📖 **[Full documentation is in the wiki](https://github.com/tempus2016/family-hub-card/wiki)** —
 configuration reference, wall-tablet setup, troubleshooting and FAQ.
 
