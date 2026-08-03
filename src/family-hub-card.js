@@ -4,6 +4,9 @@ import { normaliseConfig } from './data/config.js';
 import { HubData } from './data/hub-data.js';
 import { msUntilNextMinute } from './data/time.js';
 import './views/agenda-view.js';
+// Registers <family-hub-card-editor>, which getConfigElement() instantiates by
+// tag name — without this import the visual editor renders as an unknown element.
+import './editor/family-hub-card-editor.js';
 
 const ENTITY_RE = /^[a-z_]+\.[a-z0-9_]+$/;
 
