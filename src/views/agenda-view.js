@@ -29,7 +29,7 @@ export function nowLineIndex(timeline, now) {
   return idx;
 }
 
-class FamilyHubAgenda extends LitElement {
+export class FamilyHubAgenda extends LitElement {
   static properties = {
     model: { attribute: false },
     now: { attribute: false },
@@ -81,12 +81,33 @@ class FamilyHubAgenda extends LitElement {
       }
     });
     this._ro.observe(this);
+
+    this._onVisibility = () => {
+      if (document.visibilityState === 'hidden') this.flushPending();
+    };
+    // pagehide can fire while visibilityState is still "visible", so it gets
+    // its own unconditional handler.
+    this._onPageHide = () => this.flushPending();
+    document.addEventListener('visibilitychange', this._onVisibility);
+    window.addEventListener('pagehide', this._onPageHide);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._ro?.disconnect();
-    this._pending.forEach((t) => clearTimeout(t.timer));
+    document.removeEventListener('visibilitychange', this._onVisibility);
+    window.removeEventListener('pagehide', this._onPageHide);
+    // Commit rather than discard: a tablet sleeping inside the undo window
+    // should not silently swallow a chore the child already ticked.
+    this.flushPending();
+  }
+
+  /** Fire every queued completion immediately and clear the queue. */
+  flushPending() {
+    for (const p of this._pending.values()) {
+      clearTimeout(p.timer);
+      this._fire(p.personId, p.choreId);
+    }
     this._pending.clear();
   }
 
@@ -112,7 +133,7 @@ class FamilyHubAgenda extends LitElement {
       this._pending.delete(key);
       this._fire(personId, choreId);
     }, this.confirmWindow * 1000);
-    this._pending.set(key, { timer });
+    this._pending.set(key, { timer, personId, choreId });
     this.requestUpdate();
   }
 

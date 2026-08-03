@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTimeline, nowLineIndex } from '../src/views/agenda-view.js';
+import { buildTimeline, nowLineIndex, FamilyHubAgenda } from '../src/views/agenda-view.js';
 
 const ana = { id: 'ana', name: 'Ana', color: '#4A9EFF' };
 const ben = { id: 'ben', name: 'Ben', color: '#FF4A87' };
@@ -54,5 +54,57 @@ describe('nowLineIndex', () => {
 
   it('ignores all-day rows when positioning', () => {
     expect(nowLineIndex(buildTimeline([people[1]]), new Date('2026-08-03T10:00:00Z'))).toBe(2);
+  });
+});
+
+describe('undo window', () => {
+  function makeView(confirmWindow = 3) {
+    const view = new FamilyHubAgenda();
+    view.confirmWindow = confirmWindow;
+    view.requestUpdate = () => {};
+    const fired = [];
+    view.dispatchEvent = (e) => { fired.push(e.detail); return true; };
+    return { view, fired };
+  }
+
+  it('does not fire the completion while the window is open', () => {
+    const { view, fired } = makeView();
+    view._tap('ana', 'c1');
+    expect(fired).toEqual([]);
+    expect(view._pending.size).toBe(1);
+  });
+
+  it('cancels the completion when tapped again inside the window', () => {
+    const { view, fired } = makeView();
+    view._tap('ana', 'c1');
+    view._tap('ana', 'c1');
+    expect(fired).toEqual([]);
+    expect(view._pending.size).toBe(0);
+  });
+
+  it('fires immediately when confirmWindow is 0', () => {
+    const { view, fired } = makeView(0);
+    view._tap('ana', 'c1');
+    expect(fired).toEqual([{ personId: 'ana', choreId: 'c1' }]);
+  });
+
+  it('flushes queued completions rather than dropping them', () => {
+    const { view, fired } = makeView();
+    view._tap('ana', 'c1');
+    view._tap('ben', 'c2');
+    view.flushPending();
+    expect(fired).toEqual([
+      { personId: 'ana', choreId: 'c1' },
+      { personId: 'ben', choreId: 'c2' },
+    ]);
+    expect(view._pending.size).toBe(0);
+  });
+
+  it('fires the completion when the window expires', async () => {
+    const { view, fired } = makeView(0.05);
+    view._tap('ana', 'c1');
+    await new Promise((r) => setTimeout(r, 120));
+    expect(fired).toEqual([{ personId: 'ana', choreId: 'c1' }]);
+    expect(view._pending.size).toBe(0);
   });
 });
