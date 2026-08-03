@@ -74,6 +74,30 @@ describe('fetchEvents', () => {
     expect(events).toHaveLength(2);
   });
 
+  it('drops events outside the window even when the backend ignores it', async () => {
+    // Observed against a real calendar entity: it returned today's and
+    // tomorrow's recurrences for a one-day window.
+    const hass = {
+      callApi: async () => [
+        { summary: 'Today early', start: { dateTime: '2026-08-03T06:00:00+01:00' }, end: { dateTime: '2026-08-03T07:00:00+01:00' } },
+        { summary: 'Tomorrow early', start: { dateTime: '2026-08-04T06:00:00+01:00' }, end: { dateTime: '2026-08-04T07:00:00+01:00' } },
+        { summary: 'Yesterday', start: { dateTime: '2026-08-02T06:00:00+01:00' }, end: { dateTime: '2026-08-02T07:00:00+01:00' } },
+      ],
+    };
+    const { events } = await fetchEvents(hass, [{ id: 'ana', calendars: ['calendar.ana'] }], now, TZ);
+    expect(events.map((e) => e.summary)).toEqual(['Today early']);
+  });
+
+  it('keeps an event that started yesterday and is still running', async () => {
+    const hass = {
+      callApi: async () => [
+        { summary: 'Night shift', start: { dateTime: '2026-08-02T22:00:00+01:00' }, end: { dateTime: '2026-08-03T07:00:00+01:00' } },
+      ],
+    };
+    const { events } = await fetchEvents(hass, [{ id: 'ana', calendars: ['calendar.ana'] }], now, TZ);
+    expect(events.map((e) => e.summary)).toEqual(['Night shift']);
+  });
+
   it('sorts events chronologically with all-day first', async () => {
     const hass = {
       callApi: async () => [

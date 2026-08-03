@@ -45,7 +45,14 @@ class FamilyHubCard extends LitElement {
   }
 
   set hass(hass) {
+    const prev = this._hass;
     this._hass = hass;
+    if (this._hub) {
+      // A ticked chore, an added event or a new TaskMate completion all arrive
+      // as entity updates. Without this the card would sit stale until the
+      // next poll — up to refresh_interval on a wall display.
+      this._hub.hassChanged(prev);
+    }
     if (!this._hub && this._config) {
       this._hub = new HubData({
         config: this._config,

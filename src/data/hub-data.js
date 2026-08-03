@@ -13,6 +13,8 @@ export class HubData {
     this._cancels = [];
     this._events = [];
     this._chores = {};
+    this._failuresByPerson = {};
+    this._inflight = null;
     this.model = { people: [], staleSince: null, failures: [] };
   }
 
@@ -20,7 +22,56 @@ export class HubData {
     return this.getHass()?.config?.time_zone || 'UTC';
   }
 
+  /** Every entity whose change should move something on screen. */
+  watchedEntities() {
+    const ids = [];
+    for (const p of this.config.people) {
+      ids.push(...(p.calendars || []));
+      if (p.todo) ids.push(p.todo);
+      if (p.points) ids.push(p.points);
+    }
+    if (this.config.taskmateChores) ids.push(this.config.taskmateChores);
+    return ids;
+  }
+
+  /**
+   * Called on every hass update. Compares state objects by identity rather than
+   * by `.state`, because the signal we care about is sometimes attribute-only:
+   * sensor.taskmate_chores keeps the same numeric state while its
+   * todays_completions attribute grows.
+   */
+  hassChanged(prev) {
+    const hass = this.getHass();
+    if (!hass) return;
+
+    let refetch = false;
+    let rebuild = false;
+    for (const id of this.watchedEntities()) {
+      if (prev?.states?.[id] === hass.states?.[id]) continue;
+      // Calendars and to-do lists need a network round trip; sensors carry
+      // everything we need in the state object already.
+      if (id.startsWith('calendar.') || id.startsWith('todo.')) refetch = true;
+      else rebuild = true;
+    }
+
+    if (refetch) {
+      this.refresh();
+    } else if (rebuild) {
+      this._rebuild(hass);
+      this.onChange();
+    }
+  }
+
+  /** Coalesces overlapping refreshes so a burst of state changes fetches once. */
   async refresh() {
+    if (this._inflight) return this._inflight;
+    this._inflight = this._doRefresh().finally(() => {
+      this._inflight = null;
+    });
+    return this._inflight;
+  }
+
+  async _doRefresh() {
     const hass = this.getHass();
     const now = this.getNow();
     const { people, choreFilter } = this.config;
@@ -30,9 +81,37 @@ export class HubData {
       fetchChores(hass, people, choreFilter, now, this._tz),
     ]);
 
-    // Keep last-good data rather than blanking a wall display.
-    if (cal.failures.length === 0) this._events = cal.events;
-    if (todo.failures.length === 0) this._chores = todo.choresByPerson;
+    // Keep last-good data per person, not per batch. Retaining all-or-nothing
+    // means one broken entity blanks every other person's data too.
+    const prevEvents = this._events;
+    const prevChores = this._chores;
+
+    const calFailed = new Set(Object.keys(cal.failuresByPerson || {}));
+    this._events = [
+      ...cal.events.filter((e) => !calFailed.has(e.personId)),
+      // A person with one working and one broken calendar keeps their previous
+      // day rather than showing a half-populated one.
+      ...prevEvents.filter((e) => calFailed.has(e.personId)),
+    ].sort((a, b) => {
+      if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+      return a.start - b.start;
+    });
+
+    const choreFailed = new Set(Object.keys(todo.failuresByPerson || {}));
+    this._chores = {};
+    for (const p of people) {
+      this._chores[p.id] = choreFailed.has(p.id)
+        ? prevChores[p.id] || []
+        : todo.choresByPerson[p.id] || [];
+    }
+
+    this._failuresByPerson = {};
+    for (const [pid, ents] of Object.entries(cal.failuresByPerson || {})) {
+      (this._failuresByPerson[pid] ||= []).push(...ents);
+    }
+    for (const [pid, ents] of Object.entries(todo.failuresByPerson || {})) {
+      (this._failuresByPerson[pid] ||= []).push(...ents);
+    }
 
     const failures = [...cal.failures, ...todo.failures];
     this.model.staleSince = failures.length ? (this.model.staleSince || now) : null;
@@ -54,6 +133,7 @@ export class HubData {
         chores: this._chores[p.id] || [],
         completedToday: completionsForPerson(completions, withChild),
         points,
+        failures: this._failuresByPerson[p.id] || [],
       };
     });
   }

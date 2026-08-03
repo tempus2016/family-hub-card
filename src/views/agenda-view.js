@@ -183,6 +183,9 @@ class FamilyHubAgenda extends LitElement {
           </div>
           ${this._points(p)}
         </div>
+        ${(p.failures || []).length
+          ? html`<div class="notice">Can't read ${p.failures.join(', ')}</div>`
+          : nothing}
         ${outstanding.map((c) => this._chore(p, c, 'open'))}
         ${done.map((c) => this._chore(p, c, 'done'))}
         ${(p.completedToday || []).map(

@@ -43,6 +43,7 @@ export async function fetchEvents(hass, people, now, tz) {
   }
 
   const failures = [];
+  const failuresByPerson = {};
   const results = await Promise.all(
     jobs.map(async ({ person, entity }) => {
       try {
@@ -50,15 +51,25 @@ export async function fetchEvents(hass, people, now, tz) {
         return (raw || []).map((r) => normaliseEvent(r, person.id, tz));
       } catch {
         failures.push(entity);
+        (failuresByPerson[person.id] ||= []).push(entity);
         return [];
       }
     }),
   );
 
-  const events = results.flat().sort((a, b) => {
-    if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
-    return a.start - b.start;
-  });
+  // Not every calendar integration honours the requested window — some return
+  // whole recurrence series regardless. Without this filter tomorrow's events
+  // render alongside today's, and since rows show only HH:MM the result looks
+  // like a broken sort rather than a wrong day.
+  const inWindow = (ev) => ev.start < end && (ev.end > start || ev.start >= start);
 
-  return { events, failures };
+  const events = results
+    .flat()
+    .filter(inWindow)
+    .sort((a, b) => {
+      if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+      return a.start - b.start;
+    });
+
+  return { events, failures, failuresByPerson };
 }

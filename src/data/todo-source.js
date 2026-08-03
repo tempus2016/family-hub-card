@@ -35,6 +35,7 @@ export function filterChores(items, filter, now, tz) {
 export async function fetchChores(hass, people, filter, now, tz) {
   const choresByPerson = {};
   const failures = [];
+  const failuresByPerson = {};
 
   await Promise.all(
     people
@@ -48,12 +49,13 @@ export async function fetchChores(hass, people, filter, now, tz) {
           }));
         } catch {
           failures.push(p.todo);
+          (failuresByPerson[p.id] ||= []).push(p.todo);
           choresByPerson[p.id] = [];
         }
       }),
   );
 
-  return { choresByPerson, failures };
+  return { choresByPerson, failures, failuresByPerson };
 }
 
 export async function completeChore(hass, entityId, uid) {
