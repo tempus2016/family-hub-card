@@ -108,3 +108,28 @@ describe('undo window', () => {
     expect(view._pending.size).toBe(0);
   });
 });
+
+describe('read-only paging', () => {
+  function makeView(readOnly) {
+    const view = new FamilyHubAgenda();
+    view.confirmWindow = 3;
+    view.readOnly = readOnly;
+    view.requestUpdate = () => {};
+    const fired = [];
+    view.dispatchEvent = (e) => { fired.push(e.detail); return true; };
+    return { view, fired };
+  }
+
+  it('ignores taps when paged away from today', () => {
+    const { view, fired } = makeView(true);
+    view._tap('ana', 'c1');
+    expect(fired).toEqual([]);
+    expect(view._pending.size).toBe(0);
+  });
+
+  it('still accepts taps on today', () => {
+    const { view } = makeView(false);
+    view._tap('ana', 'c1');
+    expect(view._pending.size).toBe(1);
+  });
+});

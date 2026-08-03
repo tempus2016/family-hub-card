@@ -76,3 +76,34 @@ describe('msUntilNextLocalMidnight', () => {
     expect(msUntilNextLocalMidnight(now, TZ)).toBe(3600 * 1000);
   });
 });
+
+describe('localDayWindow offset', () => {
+  it('slides the window forward by whole local days', () => {
+    const now = new Date('2026-08-03T10:00:00Z');
+    const { start, end } = localDayWindow(now, TZ, 1, 7);
+    expect(start.toISOString()).toBe('2026-08-09T23:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-08-10T23:00:00.000Z');
+  });
+
+  it('slides backwards for a negative offset', () => {
+    const now = new Date('2026-08-03T10:00:00Z');
+    const { start } = localDayWindow(now, TZ, 1, -7);
+    expect(start.toISOString()).toBe('2026-07-26T23:00:00.000Z');
+  });
+
+  it('stays exact across the autumn DST change at an offset', () => {
+    // Offset 7 from 12 Oct lands on 19-26 Oct, which contains the 25-hour day
+    // (clocks go back on the 25th). The window must be 169 hours, not 168.
+    const now = new Date('2026-10-12T10:00:00Z');
+    const { start, end } = localDayWindow(now, TZ, 7, 7);
+    expect(start.toISOString()).toBe('2026-10-18T23:00:00.000Z');
+    expect(end.toISOString()).toBe('2026-10-26T00:00:00.000Z');
+    expect(end - start).toBe((7 * 24 + 1) * 3600 * 1000);
+  });
+
+  it('defaults to no offset', () => {
+    const now = new Date('2026-08-03T10:00:00Z');
+    expect(localDayWindow(now, TZ, 1).start.toISOString())
+      .toBe(localDayWindow(now, TZ, 1, 0).start.toISOString());
+  });
+});

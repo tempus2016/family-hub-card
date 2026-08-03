@@ -17,6 +17,7 @@ export class HubData {
     this._failuresByPerson = {};
     this._inflight = null;
     this._windowDays = null;
+    this._startOffset = 0;
     this.model = { people: [], staleSince: null, failures: [] };
   }
 
@@ -32,6 +33,17 @@ export class HubData {
    */
   get windowDays() {
     return this._windowDays ?? (this.config.view === 'week' ? 7 : 1);
+  }
+
+  /** Days to shift the fetch window by. Negative looks backwards. */
+  get startOffset() {
+    return this._startOffset;
+  }
+
+  set startOffset(days) {
+    if (this._startOffset === days) return;
+    this._startOffset = days;
+    this.refresh();
   }
 
   set windowDays(days) {
@@ -95,7 +107,7 @@ export class HubData {
     const { people, choreFilter } = this.config;
 
     const [cal, todo] = await Promise.all([
-      fetchEvents(hass, people, now, this._tz, this.windowDays),
+      fetchEvents(hass, people, now, this._tz, this.windowDays, this._startOffset),
       fetchChores(hass, people, choreFilter, now, this._tz),
     ]);
 

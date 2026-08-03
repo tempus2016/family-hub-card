@@ -215,6 +215,57 @@ describe('HubData.windowDays', () => {
   });
 });
 
+describe('HubData.startOffset', () => {
+  const span = (p) => {
+    const q = new URLSearchParams(p.split('?')[1]);
+    return { start: q.get('start'), end: q.get('end') };
+  };
+
+  it('defaults to no offset', () => {
+    const { hub } = makeHub(cfg, makeHass());
+    expect(hub.startOffset).toBe(0);
+  });
+
+  it('slides the fetched window forward and refetches', async () => {
+    const paths = [];
+    const hass = makeHass({ callApi: async (_m, p) => { paths.push(p); return []; } });
+    const { hub } = makeHub(cfg, hass);
+    await hub.refresh();
+    const before = span(paths[0]).start;
+
+    hub.startOffset = 7;
+    await new Promise((r) => setTimeout(r, 0));
+    const after = span(paths[paths.length - 1]).start;
+
+    expect(new Date(after) - new Date(before)).toBe(7 * 24 * 3600 * 1000);
+  });
+
+  it('slides backwards for a negative offset', async () => {
+    const paths = [];
+    const hass = makeHass({ callApi: async (_m, p) => { paths.push(p); return []; } });
+    const { hub } = makeHub(cfg, hass);
+    await hub.refresh();
+    const before = span(paths[0]).start;
+
+    hub.startOffset = -7;
+    await new Promise((r) => setTimeout(r, 0));
+    const after = span(paths[paths.length - 1]).start;
+
+    expect(new Date(after) - new Date(before)).toBe(-7 * 24 * 3600 * 1000);
+  });
+
+  it('ignores a set to the offset already in force', async () => {
+    let calls = 0;
+    const hass = makeHass({ callApi: async () => { calls += 1; return []; } });
+    const { hub } = makeHub(cfg, hass);
+    await hub.refresh();
+    const before = calls;
+    hub.startOffset = 0;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toBe(before);
+  });
+});
+
 describe('HubData.hassChanged', () => {
   it('refetches when a watched todo entity changes', async () => {
     let calls = 0;
