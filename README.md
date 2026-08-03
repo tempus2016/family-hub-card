@@ -1,9 +1,28 @@
-# Family Hub Card
+<h1 align="center">Family Hub Card</h1>
 
-[![Lint & Test](https://github.com/tempus2016/family-hub-card/actions/workflows/tests.yml/badge.svg)](https://github.com/tempus2016/family-hub-card/actions/workflows/tests.yml)
-[![HACS Validation](https://github.com/tempus2016/family-hub-card/actions/workflows/validate.yml/badge.svg)](https://github.com/tempus2016/family-hub-card/actions/workflows/validate.yml)
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+<p align="center">
+  <strong>Everyone's day on one screen, and the chores nobody can claim they forgot.</strong><br>
+  A Home Assistant Lovelace card for the wall tablet in your kitchen.
+</p>
+
+<p align="center">
+  <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="https://github.com/tempus2016/family-hub-card/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
+  <img src="https://img.shields.io/badge/Home%20Assistant-2024.1+-blue" alt="HA Version">
+</p>
+
+<!-- Add once v0.1.0 is published — both render as red error badges until the
+     first release exists:
+  <a href="https://github.com/tempus2016/family-hub-card/releases"><img src="https://img.shields.io/github/v/release/tempus2016/family-hub-card" alt="Latest Release"></a>
+  <a href="https://github.com/tempus2016/family-hub-card/releases"><img src="https://img.shields.io/github/downloads/tempus2016/family-hub-card/total" alt="Downloads"></a>
+-->
+
+<p align="center">
+  <a href="https://github.com/tempus2016/family-hub-card/actions/workflows/validate.yml"><img src="https://github.com/tempus2016/family-hub-card/actions/workflows/validate.yml/badge.svg" alt="HACS Validation"></a>
+  <a href="https://github.com/tempus2016/family-hub-card/actions/workflows/tests.yml"><img src="https://github.com/tempus2016/family-hub-card/actions/workflows/tests.yml/badge.svg" alt="Lint &amp; Test"></a>
+</p>
+
+---
 
 A Home Assistant Lovelace card for a wall-mounted family tablet: today's
 schedule for everyone in one timeline, plus who owes which chore — tap to tick
