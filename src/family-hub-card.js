@@ -4,11 +4,13 @@ import { normaliseConfig } from './data/config.js';
 import { HubData } from './data/hub-data.js';
 import { msUntilNextMinute } from './data/time.js';
 import './views/agenda-view.js';
+import './views/week-view.js';
 // Registers <family-hub-card-editor>, which getConfigElement() instantiates by
 // tag name — without this import the visual editor renders as an unknown element.
 import './editor/family-hub-card-editor.js';
 
 const ENTITY_RE = /^[a-z_]+\.[a-z0-9_]+$/;
+const IMPLEMENTED_VIEWS = ['agenda', 'week'];
 
 /**
  * Which palette to paint. `auto` follows Home Assistant's own dark-mode flag,
@@ -84,7 +86,7 @@ class FamilyHubCard extends LitElement {
   setConfig(config) {
     this._config = normaliseConfig(config);
     this._applyScheme();
-    if (this._config.view !== 'agenda') {
+    if (!IMPLEMENTED_VIEWS.includes(this._config.view)) {
       console.warn(
         `family-hub-card: view "${this._config.view}" is not implemented yet — rendering agenda.`,
       );
@@ -136,6 +138,19 @@ class FamilyHubCard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._applyScheme();
+    // The week grid needs seven columns of room. Below that it collapses to
+    // agenda rather than scrolling sideways, so one dashboard serves both the
+    // wall tablet and a phone.
+    this._ro = new ResizeObserver(([entry]) => {
+      const narrow = entry.contentRect.width < 900;
+      if (narrow !== this._narrow) {
+        this._narrow = narrow;
+        // Refetch at the new width's window before rendering the other view.
+        if (this._hub) this._hub.windowDays = this._effectiveView === 'week' ? 7 : 1;
+        this.requestUpdate();
+      }
+    });
+    this._ro.observe(this);
     this._scheduleTick();
     this._onOnline = () => this._hub?.refresh();
     window.addEventListener('online', this._onOnline);
@@ -143,6 +158,7 @@ class FamilyHubCard extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._ro?.disconnect();
     clearTimeout(this._tickTimer);
     window.removeEventListener('online', this._onOnline);
     this._hub?.stop();
@@ -169,6 +185,22 @@ class FamilyHubCard extends LitElement {
     return { view: 'agenda', people: [{ name: 'Ana', todo: 'todo.ana' }] };
   }
 
+  /** The view actually rendered, after the narrow-screen collapse. */
+  get _effectiveView() {
+    if (this._config.view === 'week' && this._narrow) return 'agenda';
+    return this._config.view;
+  }
+
+  _headerDate(now) {
+    if (this._effectiveView === 'week') {
+      const fmt = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long' });
+      return `Week of ${fmt.format(now)}`;
+    }
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: 'long', day: 'numeric', month: 'long',
+    }).format(now);
+  }
+
   _onChoreTap(e) {
     const { personId, choreId } = e.detail;
     this._hub?.complete(personId, choreId);
@@ -191,11 +223,9 @@ class FamilyHubCard extends LitElement {
       <ha-card>
         <div class="head">
           <div>
-            <div class="date">
-              ${new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}
-            </div>
+            <div class="date">${this._headerDate(now)}</div>
             ${subtitle ? html`<div class="sub">${subtitle}</div>` : nothing}
-            ${this._config.view !== 'agenda'
+            ${!IMPLEMENTED_VIEWS.includes(this._config.view)
               ? html`<div class="fallback">
                   <code>${this._config.view}</code> view isn't built yet — showing agenda
                 </div>`
@@ -218,12 +248,18 @@ class FamilyHubCard extends LitElement {
               : nothing}
           </div>
         </div>
-        <family-hub-agenda
-          .model=${model}
-          .now=${now}
-          .confirmWindow=${this._config.confirmWindow}
-          @chore-tap=${(e) => this._onChoreTap(e)}
-        ></family-hub-agenda>
+        ${this._effectiveView === 'week'
+          ? html`<family-hub-week
+              .model=${model}
+              .now=${now}
+              .tz=${this._hass.config?.time_zone || 'UTC'}
+            ></family-hub-week>`
+          : html`<family-hub-agenda
+              .model=${model}
+              .now=${now}
+              .confirmWindow=${this._config.confirmWindow}
+              @chore-tap=${(e) => this._onChoreTap(e)}
+            ></family-hub-agenda>`}
       </ha-card>
     `;
   }

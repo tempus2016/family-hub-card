@@ -29,6 +29,9 @@ export const tokens = css`
     --fh-text-faint: var(--fh-text-faint-color, #6d768c);
     --fh-chore-text: var(--fh-chore-text-color, #c3c9d8);
     --fh-now: var(--fh-now-color, #4A9EFF);
+    --fh-cell: var(--fh-cell-bg, #171b24);
+    --fh-cell-today: var(--fh-cell-today-bg, #1b2130);
+    --fh-cell-today-edge: var(--fh-cell-today-edge-color, #2b3550);
 
     --fh-font: var(--fh-font-family, 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif);
     --fh-mono: var(--fh-font-mono, 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace);
@@ -52,6 +55,9 @@ export const tokens = css`
     --fh-text-dim: var(--fh-text-dim-color, #8a92a4);
     --fh-text-faint: var(--fh-text-faint-color, #949cad);
     --fh-chore-text: var(--fh-chore-text-color, #2b3140);
+    --fh-cell: var(--fh-cell-bg, #f4f6f9);
+    --fh-cell-today: var(--fh-cell-today-bg, #e8effb);
+    --fh-cell-today-edge: var(--fh-cell-today-edge-color, #b9cdf0);
   }
 `;
 

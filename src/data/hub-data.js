@@ -16,11 +16,28 @@ export class HubData {
     this._chores = {};
     this._failuresByPerson = {};
     this._inflight = null;
+    this._windowDays = null;
     this.model = { people: [], staleSince: null, failures: [] };
   }
 
   get _tz() {
     return this.getHass()?.config?.time_zone || 'UTC';
+  }
+
+  /**
+   * How many days of events to fetch. The week grid needs seven; every other
+   * view needs one. Settable because the card collapses week to agenda on a
+   * narrow screen, and a collapsed agenda showing seven days of events in one
+   * timeline would read as duplicates.
+   */
+  get windowDays() {
+    return this._windowDays ?? (this.config.view === 'week' ? 7 : 1);
+  }
+
+  set windowDays(days) {
+    if (this._windowDays === days) return;
+    this._windowDays = days;
+    this.refresh();
   }
 
   /** Every entity whose change should move something on screen. */
@@ -78,7 +95,7 @@ export class HubData {
     const { people, choreFilter } = this.config;
 
     const [cal, todo] = await Promise.all([
-      fetchEvents(hass, people, now, this._tz),
+      fetchEvents(hass, people, now, this._tz, this.windowDays),
       fetchChores(hass, people, choreFilter, now, this._tz),
     ]);
 
