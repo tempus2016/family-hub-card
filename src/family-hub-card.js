@@ -5,6 +5,8 @@ import { HubData } from './data/hub-data.js';
 import { msUntilNextMinute } from './data/time.js';
 import './views/agenda-view.js';
 import './views/week-view.js';
+import './add/add-dialog.js';
+import { availableTypes } from './add/add-controller.js';
 // Registers <family-hub-card-editor>, which getConfigElement() instantiates by
 // tag name — without this import the visual editor renders as an unknown element.
 import './editor/family-hub-card-editor.js';
@@ -67,6 +69,8 @@ class FamilyHubCard extends LitElement {
       .sub { font-size: 15px; color: var(--fh-text-dim); margin-top: 3px; }
       .meta { display: flex; align-items: center; gap: 18px; font-size: 19px; color: var(--fh-text-mute); flex-shrink: 0; }
       .clock { font-size: 44px; font-weight: 300; letter-spacing: -1.5px; color: var(--fh-text-strong); font-variant-numeric: tabular-nums; line-height: 1; }
+      .addbtn { min-width: var(--fh-touch); min-height: var(--fh-touch); border-radius: 50%; border: none; background: var(--fh-surface); color: var(--fh-text); font-size: 26px; line-height: 1; cursor: pointer; flex-shrink: 0; }
+      .addbtn:hover { background: var(--fh-chip); }
       .loading { padding: 24px 26px; color: var(--fh-text-dim); font-size: 16px; }
       /* A console warning is invisible on a wall tablet, so say it on the card. */
       .fallback {
@@ -241,6 +245,11 @@ class FamilyHubCard extends LitElement {
             ${weather
               ? html`<span>${Math.round(weather.attributes.temperature)}°</span>`
               : nothing}
+            ${availableTypes(this._hass, this._config).length
+              ? html`<button class="addbtn" aria-label="Add" title="Add"
+                  @click=${() => this.renderRoot.querySelector('family-hub-add-dialog')?.show()}
+                >+</button>`
+              : nothing}
             ${this._config.header.clock
               ? html`<span class="clock">
                   ${new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }).format(now)}
@@ -248,6 +257,12 @@ class FamilyHubCard extends LitElement {
               : nothing}
           </div>
         </div>
+        <family-hub-add-dialog
+          .hass=${this._hass}
+          .config=${this._config}
+          .date=${now}
+          @created=${() => this._hub?.refresh()}
+        ></family-hub-add-dialog>
         ${this._effectiveView === 'week'
           ? html`<family-hub-week
               .model=${model}
