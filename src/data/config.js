@@ -6,6 +6,19 @@ export const PALETTE = [
 const VIEWS = ['agenda', 'columns', 'week'];
 const THEMES = ['auto', 'dark', 'light'];
 
+// A person's colour is interpolated into a `style="--pc:…"` attribute. That
+// attribute is a whole declaration list, so an unchecked value can close the
+// custom property and append rules of its own — `red;position:fixed;inset:0`
+// covers the dashboard. Accept only the forms a colour can legitimately take:
+// hex (what the visual editor's colour input emits), a CSS named colour, an
+// rgb()/hsl() function, or a var() reference to a theme variable.
+const COLOUR_RE = /^(#[0-9a-f]{3,8}|[a-z]+|(rgba?|hsla?)\([0-9a-z%.,\s/]*\)|var\(\s*--[a-z0-9-]+\s*\))$/i;
+
+// Entity ids reach the REST path in `calendars/<id>`. They are encoded at the
+// call site; rejecting the malformed ones here turns a silently empty calendar
+// into a message that names the typo.
+const ENTITY_RE = /^[a-z_]+\.[a-z0-9_]+$/;
+
 function slug(name) {
   return String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
@@ -36,6 +49,14 @@ export function normaliseConfig(raw) {
     if (calendars.length === 0 && !p.todo) {
       throw new Error(`family-hub-card: "${p.name}" needs \`calendars\` or \`todo\``);
     }
+    for (const entity of calendars) {
+      if (!ENTITY_RE.test(String(entity))) {
+        throw new Error(`family-hub-card: "${entity}" is not a valid entity id for "${p.name}"`);
+      }
+    }
+    if (p.color != null && !COLOUR_RE.test(String(p.color).trim())) {
+      throw new Error(`family-hub-card: "${p.color}" is not a valid \`color\` for "${p.name}"`);
+    }
     const id = slug(p.name);
     if (seen.has(id)) {
       throw new Error(`family-hub-card: duplicate person name "${p.name}"`);
@@ -44,7 +65,7 @@ export function normaliseConfig(raw) {
     return {
       id,
       name: p.name,
-      color: p.color || PALETTE[i % PALETTE.length],
+      color: p.color ? String(p.color).trim() : PALETTE[i % PALETTE.length],
       initials: p.initials || String(p.name).trim()[0].toUpperCase(),
       calendars,
       todo: p.todo || null,

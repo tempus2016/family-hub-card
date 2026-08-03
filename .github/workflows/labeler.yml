@@ -1,5 +1,11 @@
 name: Label PRs by path
 
+# pull_request_target so fork PRs can be labelled — the read-only token a fork
+# gets on `pull_request` cannot write labels. That trigger runs with repository
+# write access in the context of the BASE branch, which is safe here only
+# because this job never checks out the PR head: no fork-authored code runs. Do
+# not add an actions/checkout step. The labeler reads its config from the base
+# commit too, so a fork cannot substitute its own .github/labeler.yml.
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]

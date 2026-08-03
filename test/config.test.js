@@ -64,6 +64,31 @@ describe('normaliseConfig', () => {
     expect(c.people[0].color).toBe('#ABCDEF');
   });
 
+  it('accepts the colour forms a theme might use', () => {
+    for (const color of ['#abc', '#AABBCCDD', 'rebeccapurple', 'rgb(1, 2, 3)',
+      'hsl(210 50% 40% / 0.5)', 'var(--primary-color)']) {
+      const c = normaliseConfig({ people: [{ name: 'Ana', todo: 'todo.a', color }] });
+      expect(c.people[0].color).toBe(color);
+    }
+  });
+
+  // The colour lands in a style attribute, where a semicolon starts a new
+  // declaration and lets a config author paint over the whole dashboard.
+  it('rejects a colour carrying extra CSS declarations', () => {
+    for (const color of ['red;position:fixed;inset:0', '#fff}body{display:none',
+      'url(https://example.com/x)', 'rgb(1,2,3);background:red']) {
+      expect(() => normaliseConfig({ people: [{ name: 'Ana', todo: 'todo.a', color }] }))
+        .toThrow(/color/i);
+    }
+  });
+
+  it('rejects a calendar that is not an entity id', () => {
+    for (const calendars of ['../config', 'calendar.a?x=1', 'Calendar.A']) {
+      expect(() => normaliseConfig({ people: [{ name: 'Ana', calendars }] }))
+        .toThrow(/entity id/i);
+    }
+  });
+
   it('normalises calendars to an array', () => {
     const c = normaliseConfig({ people: [{ name: 'Ana', calendars: 'calendar.a' }] });
     expect(c.people[0].calendars).toEqual(['calendar.a']);
