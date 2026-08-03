@@ -40,28 +40,44 @@ export class FamilyHubAgenda extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      .wrap { display: grid; grid-template-columns: 1fr 380px; gap: 24px; }
+      /* Metrics ported from mockups/c.html — .split2, .ag, .agrow, .pcard. */
+      .wrap { display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; }
       .wrap[data-narrow='true'] { grid-template-columns: 1fr; }
-      .label { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fh-text-dim); margin-bottom: 8px; }
-      .timeline { background: var(--fh-surface-2); border-radius: var(--fh-radius); padding: 8px 0; }
-      .row { display: grid; grid-template-columns: 72px 4px 1fr; gap: 12px; align-items: start; padding: 12px 16px; }
-      .bar { width: 4px; border-radius: 2px; align-self: stretch; }
-      .nowline { display: flex; align-items: center; gap: 8px; padding: 0 16px; }
-      .nowline .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--fh-t1-accent, #4A9EFF); }
-      .nowline .rule { flex: 1; height: 2px; background: var(--fh-t1-accent, #4A9EFF); }
+
+      .ag { background: var(--fh-surface); border-radius: var(--fh-radius-inner); padding: 8px 18px 14px; }
+      .agrow { display: flex; gap: 15px; padding: 14px 0; border-bottom: 1px solid var(--fh-rule-soft); align-items: flex-start; }
+      .agrow:last-child { border-bottom: none; }
+      .agt { font-family: var(--fh-mono); font-size: 16px; color: var(--fh-text-soft); width: 64px; flex-shrink: 0; padding-top: 2px; font-weight: 500; }
+      .agbar { width: 4px; border-radius: 2px; background: var(--pc); align-self: stretch; flex-shrink: 0; }
+      .agn { font-size: 20px; color: var(--fh-text); font-weight: 500; line-height: 1.25; }
+      .agw { font-size: 14px; color: var(--pc); margin-top: 3px; font-weight: 600; }
       .past { opacity: 0.45; }
-      .person { background: var(--fh-surface-2); border-radius: var(--fh-radius); padding: 14px 16px; margin-bottom: var(--fh-gap); border-left: 4px solid var(--fh-person, #888); }
-      .person-head { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
-      .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; color: #000; }
-      .chore { display: flex; align-items: center; gap: 10px; }
-      .chore.done .name { text-decoration: line-through; opacity: 0.55; }
-      .chore.pending .name { text-decoration: line-through; opacity: 0.4; font-style: italic; }
-      .box { width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--fh-text-dim); }
-      .box.filled { background: var(--fh-person, #888); border-color: transparent; }
+      .empty { padding: 14px 0; color: var(--fh-text-dim); font-size: 16px; }
+
+      .now { background: #4A9EFF; height: 2px; border-radius: 1px; margin: 3px 0; position: relative; }
+      .now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #4A9EFF; }
+
+      .pcard { background: var(--fh-surface); border-radius: var(--fh-radius-inner); padding: 14px 15px; margin-bottom: 11px; border-left: 4px solid var(--pc); }
+      .phead { display: flex; align-items: center; gap: 13px; }
+      .av { width: 40px; height: 40px; border-radius: 50%; background: var(--pc); color: var(--fh-bg); font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .nm { font-weight: 600; font-size: 18px; }
+      .nextc { font-size: 14px; color: var(--fh-text-mute); margin-top: 2px; }
+      .pts { margin-left: auto; text-align: right; padding-left: 10px; }
+      .pts b { display: block; font-size: 24px; color: var(--pc); font-family: var(--fh-mono); line-height: 1; }
+      .pts span { font-size: 10px; color: var(--fh-text-faint); text-transform: uppercase; letter-spacing: 1px; }
+      .pts .today { font-size: 12px; color: var(--fh-text-mute); margin-top: 3px; text-transform: none; letter-spacing: 0; }
+
+      .chores { margin-top: 6px; border-top: 1px solid var(--fh-rule-soft); padding-top: 2px; }
+      .chore { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--fh-chore-text); }
+      .chore .name { flex: 1; min-width: 0; }
+      .chore.done .name, .chore.pending .name { text-decoration: line-through; color: var(--fh-text-dim); }
+      .chore.pending .name { font-style: italic; }
+      .box { width: 19px; height: 19px; border-radius: 5px; background: var(--fh-chip); flex-shrink: 0; position: relative; }
+      .box.filled { background: var(--pc); }
+      .box.filled::after { content: '\\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--fh-bg); font-weight: 800; }
       .ring { animation: fh-ring var(--fh-window, 3s) linear forwards; }
-      @keyframes fh-ring { from { opacity: 1; } to { opacity: 0.3; } }
-      .points { font-family: var(--fh-mono); font-size: 1.5rem; text-align: right; }
-      .waiting { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--warning-color, #ffb84a); }
+      @keyframes fh-ring { from { opacity: 1; } to { opacity: 0.35; } }
+      .waiting { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--warning-color, #FFB84A); font-weight: 600; flex-shrink: 0; }
     `,
   ];
 
@@ -155,34 +171,32 @@ export class FamilyHubAgenda extends LitElement {
 
     const rows = [];
     timeline.forEach((r, i) => {
-      if (i === nowIdx) {
-        rows.push(html`<div class="nowline"><span class="dot"></span><span class="rule"></span></div>`);
-      }
+      if (i === nowIdx) rows.push(html`<div class="now"></div>`);
       rows.push(html`
-        <div class="row ${!r.allDay && r.time < this.now ? 'past' : ''}">
-          <span class="time">${r.allDay ? 'All day' : this._fmt(r.time)}</span>
-          <span class="bar" style="background:${r.person.color}"></span>
-          <span>
-            <div class="t1">${r.event.summary}</div>
-            <div class="t2" style="color:${r.person.color}">
+        <div class="agrow ${!r.allDay && r.time < this.now ? 'past' : ''}" style="--pc:${r.person.color}">
+          <div class="agt">${r.allDay ? 'All day' : this._fmt(r.time)}</div>
+          <div class="agbar"></div>
+          <div>
+            <div class="agn">${r.event.summary}</div>
+            <div class="agw">
               ${r.person.name}${r.event.location ? html` · ${r.event.location}` : nothing}
             </div>
-          </span>
+          </div>
         </div>
       `);
     });
-    if (nowIdx === timeline.length) {
-      rows.push(html`<div class="nowline"><span class="dot"></span><span class="rule"></span></div>`);
-    }
+    if (nowIdx === timeline.length) rows.push(html`<div class="now"></div>`);
 
     return html`
       <div class="wrap" data-narrow=${String(this._narrow)}>
         <div>
-          <div class="label">Today</div>
-          <div class="timeline">${rows.length ? rows : html`<div class="row t2">Nothing scheduled</div>`}</div>
+          <div class="sec-l">Today</div>
+          <div class="ag">
+            ${rows.length ? rows : html`<div class="empty">Nothing scheduled</div>`}
+          </div>
         </div>
         <div>
-          <div class="label">Chores</div>
+          <div class="sec-l">Chores &amp; points</div>
           ${this.model.people.map((p) => this._person(p))}
         </div>
       </div>
@@ -192,50 +206,62 @@ export class FamilyHubAgenda extends LitElement {
   _person(p) {
     const outstanding = (p.chores || []).filter((c) => c.status !== 'completed');
     const done = (p.chores || []).filter((c) => c.status === 'completed');
+    const doneToday = p.completedToday || [];
+    const hasRows = outstanding.length || done.length || doneToday.length;
+
     return html`
-      <div class="person" style="--fh-person:${p.color}">
-        <div class="person-head">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span class="avatar" style="background:${p.color}">${p.initials}</span>
-            <span>
-              <div class="t1" style="font-size:1.25rem">${p.name}</div>
-              <div class="t2">${outstanding.length} to do</div>
-            </span>
+      <div class="pcard" style="--pc:${p.color}">
+        <div class="phead">
+          <div class="av">${p.initials}</div>
+          <div>
+            <div class="nm">${p.name}</div>
+            <div class="nextc">${this._summary(p, outstanding)}</div>
           </div>
           ${this._points(p)}
         </div>
         ${(p.failures || []).length
           ? html`<div class="notice">Can't read ${p.failures.join(', ')}</div>`
           : nothing}
-        ${outstanding.map((c) => this._chore(p, c, 'open'))}
-        ${done.map((c) => this._chore(p, c, 'done'))}
-        ${(p.completedToday || []).map(
-          (c) => html`
-            <div class="chore ${c.approved ? 'done' : 'pending'}">
-              <span class="box filled"></span>
-              <span class="name t2">${c.name}</span>
-              ${c.approved ? nothing : html`<span class="waiting">waiting</span>`}
-            </div>
-          `,
-        )}
+        ${hasRows
+          ? html`<div class="chores">
+              ${outstanding.map((c) => this._chore(p, c, 'open'))}
+              ${done.map((c) => this._chore(p, c, 'done'))}
+              ${doneToday.map(
+                (c) => html`
+                  <div class="chore ${c.approved ? 'done' : 'pending'}">
+                    <span class="tap"><span class="box filled"></span></span>
+                    <span class="name">${c.name}</span>
+                    ${c.approved ? nothing : html`<span class="waiting">waiting</span>`}
+                  </div>
+                `,
+              )}
+            </div>`
+          : nothing}
       </div>
     `;
   }
 
+  /** The mockup's "Next: X" line, degrading sensibly when there's nothing due. */
+  _summary(p, outstanding) {
+    if (!p.todo) return 'No chore list';
+    if (!outstanding.length) return 'All done';
+    return `Next: ${outstanding[0].summary}`;
+  }
+
   _points(p) {
     if (!p.points || p.points.balance == null) return nothing;
-    const today =
-      p.points.earnedToday == null
-        ? nothing
-        : html`<div class="t2">${p.points.earnedToday} today${
-            p.points.pendingToday ? html` · ${p.points.pendingToday} pending` : nothing
-          }</div>`;
     return html`
-      <span style="text-align:right">
-        <div class="points" style="color:${p.color}">${p.points.balance}</div>
-        <div class="t2">${p.points.unit}</div>
-        ${today}
-      </span>
+      <div class="pts">
+        <b>${p.points.balance}</b>
+        <span>${p.points.unit}</span>
+        ${p.points.earnedToday == null
+          ? nothing
+          : html`<div class="today">
+              ${p.points.earnedToday} today${p.points.pendingToday
+                ? html` · ${p.points.pendingToday} pending`
+                : nothing}
+            </div>`}
+      </div>
     `;
   }
 
@@ -257,7 +283,7 @@ export class FamilyHubAgenda extends LitElement {
             style="--fh-window:${this.confirmWindow}s"
           ></span>
         </button>
-        <span class="name t2" style="color:var(--fh-text)">${c.summary}</span>
+        <span class="name">${c.summary}</span>
       </div>
     `;
   }

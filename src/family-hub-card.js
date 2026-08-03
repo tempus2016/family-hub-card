@@ -25,11 +25,31 @@ class FamilyHubCard extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      ha-card { padding: 20px 24px; }
-      .head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
-      .date { font-size: 2rem; font-weight: 700; color: var(--fh-text); }
-      .clock { font-size: 3rem; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--fh-text); line-height: 1; }
-      .meta { display: flex; align-items: center; gap: 16px; }
+      /* Metrics ported from mockups/c.html — .wt and .wt-top. The card paints
+         its own surface rather than inheriting ha-card's, so the designed look
+         survives whatever theme the dashboard is using. */
+      ha-card {
+        background: var(--fh-bg);
+        border-radius: var(--fh-radius);
+        border: none;
+        padding: 24px 26px;
+        color: var(--fh-text);
+        font-family: var(--fh-font);
+      }
+      .head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--fh-rule);
+      }
+      .date { font-size: 32px; font-weight: 600; letter-spacing: -0.6px; color: var(--fh-text); }
+      .sub { font-size: 15px; color: var(--fh-text-dim); margin-top: 3px; }
+      .meta { display: flex; align-items: center; gap: 18px; font-size: 19px; color: var(--fh-text-mute); flex-shrink: 0; }
+      .clock { font-size: 44px; font-weight: 300; letter-spacing: -1.5px; color: var(--fh-text-strong); font-variant-numeric: tabular-nums; line-height: 1; }
+      .loading { padding: 24px 26px; color: var(--fh-text-dim); font-size: 16px; }
     `,
   ];
 
@@ -117,7 +137,7 @@ class FamilyHubCard extends LitElement {
   render() {
     if (!this._config) return nothing;
     if (!this._hass || !this._hub) {
-      return html`<ha-card><div class="t2">Loading…</div></ha-card>`;
+      return html`<ha-card><div class="loading">Loading…</div></ha-card>`;
     }
 
     const now = new Date();
@@ -134,7 +154,7 @@ class FamilyHubCard extends LitElement {
             <div class="date">
               ${new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' }).format(now)}
             </div>
-            ${subtitle ? html`<div class="t2">${subtitle}</div>` : nothing}
+            ${subtitle ? html`<div class="sub">${subtitle}</div>` : nothing}
             ${model.staleSince
               ? html`<div class="stale">
                   Last updated
@@ -144,7 +164,7 @@ class FamilyHubCard extends LitElement {
           </div>
           <div class="meta">
             ${weather
-              ? html`<span class="t2">${weather.attributes.temperature}°</span>`
+              ? html`<span>${Math.round(weather.attributes.temperature)}°</span>`
               : nothing}
             ${this._config.header.clock
               ? html`<span class="clock">
