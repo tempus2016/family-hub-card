@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { sharedStyles } from '../styles/shared.js';
 import {
   availableTypes,
-  creatableTodoLists,
+  todoListOptions,
   creatableCalendars,
   supportsDueDate,
   createTodo,
@@ -59,6 +59,7 @@ export class FamilyHubAddDialog extends LitElement {
       .btn.go { background: var(--fh-now); color: #fff; }
       .btn[disabled] { opacity: 0.5; cursor: default; }
       .err { color: var(--error-color, #d64545); font-size: 14px; margin-top: 12px; }
+      .hintline { font-size: 12px; color: var(--fh-text-mute); margin-top: 6px; line-height: 1.4; }
       .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: grid; place-items: center; z-index: 9; }
     `,
   ];
@@ -211,10 +212,26 @@ export class FamilyHubAddDialog extends LitElement {
   }
 
   _todoForm() {
-    const lists = creatableTodoLists(this.hass, this.config);
+    const options = todoListOptions(this.hass, this.config);
+    const blocked = options.filter((o) => !o.canCreate);
     const chosen = this._fields.entityId;
     return html`
-      ${this._entitySelect(lists, 'List')}
+      <label>List</label>
+      <select @change=${(e) => this._set('entityId', e.target.value)}>
+        <option value="">Choose…</option>
+        ${options.map(
+          (o) => html`<option value=${o.id} ?disabled=${!o.canCreate}>
+            ${this.hass.states[o.id]?.attributes?.friendly_name || o.id}${o.canCreate ? '' : ' — add in TaskMate'}
+          </option>`,
+        )}
+      </select>
+      ${blocked.length
+        ? html`<div class="hintline">
+            ${blocked.length === 1 ? 'One list does not' : `${blocked.length} lists do not`}
+            accept new items directly. TaskMate chores carry points, recurrence and
+            assignment, so they are created in TaskMate.
+          </div>`
+        : nothing}
       <label>Task</label>
       <input type="text" @input=${(e) => this._set('title', e.target.value)} />
       ${chosen && supportsDueDate(this.hass, chosen)
