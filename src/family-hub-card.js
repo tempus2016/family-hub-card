@@ -1,5 +1,5 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { sharedStyles } from './styles/shared.js';
+import { tokens, sharedStyles } from './styles/shared.js';
 import { normaliseConfig } from './data/config.js';
 import { HubData } from './data/hub-data.js';
 import { msUntilNextMinute } from './data/time.js';
@@ -9,6 +9,21 @@ import './views/agenda-view.js';
 import './editor/family-hub-card-editor.js';
 
 const ENTITY_RE = /^[a-z_]+\.[a-z0-9_]+$/;
+
+/**
+ * Which palette to paint. `auto` follows Home Assistant's own dark-mode flag,
+ * falling back to the OS preference before hass has arrived. `dark` and `light`
+ * pin it — a wall tablet often wants to stay dark regardless of the dashboard.
+ */
+export function resolveScheme(hass, configTheme) {
+  if (configTheme === 'dark' || configTheme === 'light') return configTheme;
+  const haDark = hass?.themes?.darkMode;
+  if (typeof haDark === 'boolean') return haDark ? 'dark' : 'light';
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  return 'dark';
+}
 
 export function resolveSubtitle(hass, subtitle) {
   if (!subtitle) return '';
@@ -23,6 +38,7 @@ class FamilyHubCard extends LitElement {
   static properties = { _tick: { state: true } };
 
   static styles = [
+    tokens,
     sharedStyles,
     css`
       /* Metrics ported from mockups/c.html — .wt and .wt-top. The card paints
@@ -55,6 +71,7 @@ class FamilyHubCard extends LitElement {
 
   setConfig(config) {
     this._config = normaliseConfig(config);
+    this._applyScheme();
     if (this._config.view !== 'agenda') {
       console.warn(
         `family-hub-card: view "${this._config.view}" is not implemented yet — rendering agenda.`,
@@ -67,6 +84,7 @@ class FamilyHubCard extends LitElement {
   set hass(hass) {
     const prev = this._hass;
     this._hass = hass;
+    this._applyScheme();
     if (this._hub) {
       // A ticked chore, an added event or a new TaskMate completion all arrive
       // as entity updates. Without this the card would sit stale until the
@@ -94,8 +112,18 @@ class FamilyHubCard extends LitElement {
     return this._hass;
   }
 
+  /** Drives the [data-scheme] selector the light palette hangs off. */
+  _applyScheme() {
+    const scheme = resolveScheme(this._hass, this._config?.theme);
+    if (this.dataset.scheme !== scheme) {
+      this.dataset.scheme = scheme;
+      this.requestUpdate();
+    }
+  }
+
   connectedCallback() {
     super.connectedCallback();
+    this._applyScheme();
     this._scheduleTick();
     this._onOnline = () => this._hub?.refresh();
     window.addEventListener('online', this._onOnline);

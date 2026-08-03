@@ -69,6 +69,16 @@ describe('normaliseConfig', () => {
     expect(c.people[0].calendars).toEqual(['calendar.a']);
   });
 
+  it('defaults theme to auto and accepts dark/light', () => {
+    expect(normaliseConfig(minimal).theme).toBe('auto');
+    expect(normaliseConfig({ ...minimal, theme: 'dark' }).theme).toBe('dark');
+    expect(normaliseConfig({ ...minimal, theme: 'light' }).theme).toBe('light');
+  });
+
+  it('throws on an unknown theme', () => {
+    expect(() => normaliseConfig({ ...minimal, theme: 'neon' })).toThrow(/theme/i);
+  });
+
   it('accepts columns and week without throwing', () => {
     expect(normaliseConfig({ ...minimal, view: 'week' }).view).toBe('week');
   });
