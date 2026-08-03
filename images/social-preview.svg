@@ -1,0 +1,96 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e1119"/>
+      <stop offset="1" stop-color="#12151c"/>
+    </linearGradient>
+    <radialGradient id="glowBlue" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#4A9EFF" stop-opacity="0.13"/>
+      <stop offset="1" stop-color="#4A9EFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowPink" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FF4A87" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#FF4A87" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="620" y="-160" width="840" height="840" fill="url(#glowBlue)"/>
+  <rect x="-220" y="240" width="760" height="760" fill="url(#glowPink)"/>
+
+  <!-- ============ left: logo mark ============ -->
+  <g>
+    <rect x="96" y="146" width="88" height="88" rx="22" fill="#181c26" stroke="#2a3040" stroke-width="1.5"/>
+    <rect x="116" y="168" width="36" height="10" rx="5" fill="#4A9EFF"/>
+    <rect x="116" y="186" width="48" height="10" rx="5" fill="#FF4A87"/>
+    <rect x="116" y="204" width="28" height="10" rx="5" fill="#FFB84A"/>
+    <line x1="160" y1="160" x2="160" y2="222" stroke="#4A9EFF" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="160" cy="160" r="5" fill="#4A9EFF"/>
+  </g>
+
+  <!-- ============ left: title + tagline ============ -->
+  <text x="96" y="308" font-family="IBM Plex Sans" font-size="63" font-weight="600" fill="#f2f4f8" style="letter-spacing:-1.5px">Family Hub Card</text>
+
+  <text x="96" y="360" font-family="IBM Plex Sans" font-size="24" font-weight="400" fill="#a7aec0">Everyone&#8217;s day on one screen &#8212; and the chores</text>
+  <text x="96" y="394" font-family="IBM Plex Sans" font-size="24" font-weight="400" fill="#a7aec0">nobody can claim they forgot.</text>
+
+  <!-- chips -->
+  <g font-family="IBM Plex Sans" font-size="16" font-weight="500">
+    <rect x="96" y="432" width="150" height="36" rx="18" fill="#1c2130" stroke="#2a3040"/>
+    <text x="171" y="455" text-anchor="middle" fill="#c7cddb">Home Assistant</text>
+    <rect x="258" y="432" width="78" height="36" rx="18" fill="#1c2130" stroke="#2a3040"/>
+    <text x="297" y="455" text-anchor="middle" fill="#c7cddb">HACS</text>
+    <rect x="348" y="432" width="188" height="36" rx="18" fill="#1c2130" stroke="#2a3040"/>
+    <text x="442" y="455" text-anchor="middle" fill="#c7cddb">No cloud, no account</text>
+  </g>
+
+  <!-- footer repo path -->
+  <text x="96" y="562" font-family="IBM Plex Mono" font-size="15" fill="#566076">github.com/tempus2016/family-hub-card</text>
+
+  <!-- ============ right: mini card mockup ============ -->
+  <rect x="742" y="98" width="452" height="446" rx="20" fill="#0b0d13" opacity="0.55" transform="translate(0,6)"/>
+  <rect x="742" y="98" width="452" height="446" rx="20" fill="#171b25" stroke="#262c3c" stroke-width="1.5"/>
+
+  <!-- header -->
+  <text x="768" y="146" font-family="IBM Plex Sans" font-size="21" font-weight="600" fill="#eef0f5">Monday, August 3</text>
+  <text x="768" y="170" font-family="IBM Plex Sans" font-size="13" fill="#7b8398">Bin day tomorrow &#183; Blue + Food caddy</text>
+  <text x="1168" y="150" text-anchor="end" font-family="IBM Plex Sans" font-size="34" font-weight="300" fill="#ffffff" style="letter-spacing:-1px">07:15</text>
+  <line x1="768" y1="190" x2="1168" y2="190" stroke="#232838" stroke-width="1"/>
+
+  <!-- timeline row 1 : Ana -->
+  <text x="768" y="228" font-family="IBM Plex Mono" font-size="15" fill="#8a93a8">07:30</text>
+  <rect x="834" y="212" width="4" height="36" rx="2" fill="#4A9EFF"/>
+  <text x="850" y="228" font-family="IBM Plex Sans" font-size="18" font-weight="500" fill="#e8eaf0">School run</text>
+  <text x="850" y="248" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#4A9EFF">Ana</text>
+
+  <!-- timeline row 2 : Ben -->
+  <text x="768" y="290" font-family="IBM Plex Mono" font-size="15" fill="#8a93a8">08:00</text>
+  <rect x="834" y="274" width="4" height="36" rx="2" fill="#FF4A87"/>
+  <text x="850" y="290" font-family="IBM Plex Sans" font-size="18" font-weight="500" fill="#e8eaf0">Football practice</text>
+  <text x="850" y="310" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#FF4A87">Ben</text>
+
+  <!-- now line -->
+  <line x1="778" y1="342" x2="1168" y2="342" stroke="#4A9EFF" stroke-width="2"/>
+  <circle cx="772" cy="342" r="4.5" fill="#4A9EFF"/>
+
+  <!-- timeline row 3 : Cal -->
+  <text x="768" y="386" font-family="IBM Plex Mono" font-size="15" fill="#8a93a8">15:30</text>
+  <rect x="834" y="370" width="4" height="36" rx="2" fill="#FFB84A"/>
+  <text x="850" y="386" font-family="IBM Plex Sans" font-size="18" font-weight="500" fill="#e8eaf0">Dentist</text>
+  <text x="850" y="406" font-family="IBM Plex Sans" font-size="13" font-weight="600" fill="#FFB84A">Cal</text>
+
+  <!-- chores -->
+  <text x="768" y="448" font-family="IBM Plex Sans" font-size="11" font-weight="600" fill="#6b7385" style="letter-spacing:1.5px">CHORES &amp; POINTS</text>
+
+  <!-- chore row 1: done -->
+  <rect x="768" y="464" width="20" height="20" rx="6" fill="#FF4A87"/>
+  <text x="778" y="479" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" font-weight="700" fill="#ffffff">&#10003;</text>
+  <text x="800" y="480" font-family="IBM Plex Sans" font-size="16" fill="#6d7488">Make bed</text>
+  <line x1="799" y1="475" x2="874" y2="475" stroke="#6d7488" stroke-width="1.4"/>
+  <text x="1168" y="480" text-anchor="end" font-family="IBM Plex Mono" font-size="16" font-weight="500" fill="#FF4A87">+10</text>
+
+  <!-- chore row 2: pending -->
+  <rect x="768" y="496" width="20" height="20" rx="6" fill="#232838"/>
+  <text x="800" y="512" font-family="IBM Plex Sans" font-size="16" fill="#e8eaf0">Brush teeth</text>
+  <text x="1168" y="512" text-anchor="end" font-family="IBM Plex Mono" font-size="16" font-weight="500" fill="#8a93a8">+5</text>
+</svg>
