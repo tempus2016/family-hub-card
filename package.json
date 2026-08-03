@@ -32,11 +32,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@rollup/plugin-node-resolve": "^15.2.3",
-    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
     "eslint": "^10.8.0",
     "globals": "^17.8.0",
     "rollup": "^4.9.0",
-    "vitest": "^1.2.0"
+    "vitest": "^4.1.10"
   }
 }
