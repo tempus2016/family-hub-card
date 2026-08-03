@@ -5,6 +5,7 @@ import { HubData } from './data/hub-data.js';
 import { msUntilNextMinute } from './data/time.js';
 import './views/agenda-view.js';
 import './views/week-view.js';
+import './views/columns-view.js';
 import './add/add-dialog.js';
 import { availableTypes } from './add/add-controller.js';
 // Registers <family-hub-card-editor>, which getConfigElement() instantiates by
@@ -12,7 +13,7 @@ import { availableTypes } from './add/add-controller.js';
 import './editor/family-hub-card-editor.js';
 
 const ENTITY_RE = /^[a-z_]+\.[a-z0-9_]+$/;
-const IMPLEMENTED_VIEWS = ['agenda', 'week'];
+const IMPLEMENTED_VIEWS = ['agenda', 'week', 'columns'];
 
 /**
  * Which palette to paint. `auto` follows Home Assistant's own dark-mode flag,
@@ -312,7 +313,15 @@ class FamilyHubCard extends LitElement {
           .date=${this._viewDate(now)}
           @created=${() => this._hub?.refresh()}
         ></family-hub-add-dialog>
-        ${this._effectiveView === 'week'
+        ${this._effectiveView === 'columns'
+          ? html`<family-hub-columns
+              .model=${model}
+              .tz=${this._hass.config?.time_zone || 'UTC'}
+              .readOnly=${Boolean(this._offset)}
+              .confirmWindow=${this._config.confirmWindow}
+              @chore-tap=${(e) => this._onChoreTap(e)}
+            ></family-hub-columns>`
+          : this._effectiveView === 'week'
           ? html`<family-hub-week
               .model=${model}
               .now=${this._viewDate(now)}

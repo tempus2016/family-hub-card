@@ -177,6 +177,46 @@ describe('HubData isolation of failures', () => {
   });
 });
 
+describe('model identity', () => {
+  it('replaces the model object rather than mutating it', async () => {
+    // Lit dirty-checks with !==, so a mutated model never re-renders a child
+    // view that takes no other changing property.
+    const { hub } = makeHub(cfg, makeHass());
+    await hub.refresh();
+    const first = hub.model;
+    await hub.refresh();
+    expect(hub.model).not.toBe(first);
+  });
+
+  it('gives a new model on a sensor-only rebuild', async () => {
+    const hass = makeHass({
+      states: { 'sensor.ana_points': { state: '1', attributes: { child_id: 'k1' } } },
+    });
+    const { hub } = makeHub(cfg, hass);
+    await hub.refresh();
+    const first = hub.model;
+
+    const prev = { ...hass, states: { ...hass.states } };
+    hass.states = { ...hass.states, 'sensor.ana_points': { state: '2', attributes: { child_id: 'k1' } } };
+    hub.hassChanged(prev);
+
+    expect(hub.model).not.toBe(first);
+    expect(hub.model.people[0].points.balance).toBe(2);
+  });
+
+  it('gives a new model when an optimistic completion is reverted', async () => {
+    const hass = makeHass({
+      callWS: async () => ({ items: [{ uid: 'c1', summary: 'Bins', status: 'needs_action' }] }),
+      callService: async () => { throw new Error('nope'); },
+    });
+    const { hub } = makeHub(cfg, hass);
+    await hub.refresh();
+    const first = hub.model;
+    await hub.complete('ana', 'c1');
+    expect(hub.model).not.toBe(first);
+  });
+});
+
 describe('HubData.windowDays', () => {
   it('defaults to one day for agenda and seven for week', () => {
     const { hub: agenda } = makeHub(cfg, makeHass());
