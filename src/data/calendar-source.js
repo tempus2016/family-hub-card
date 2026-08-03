@@ -48,7 +48,7 @@ export async function fetchEvents(hass, people, now, tz, days = 1, offsetDays = 
   const results = await Promise.all(
     jobs.map(async ({ person, entity }) => {
       try {
-        const raw = await hass.callApi('GET', `calendars/${entity}?${qs}`);
+        const raw = await hass.callApi('GET', `calendars/${encodeURIComponent(entity)}?${qs}`);
         logRecovery(`calendar:${entity}`, `${entity} is readable again`);
         return (raw || []).map((r) => normaliseEvent(r, person.id, tz));
       } catch (err) {

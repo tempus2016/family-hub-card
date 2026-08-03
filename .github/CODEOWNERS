@@ -1,0 +1,17 @@
+# Review is the last gate on what HACS ships. dist/family-hub-card.js is
+# installed verbatim onto every user's dashboard, and the build, workflow and
+# dependency files below decide what goes into it — so changes to them need an
+# owner's eyes even when the diff looks like a one-liner.
+#
+# Only effective with "Require review from Code Owners" enabled in the branch
+# protection rules for main.
+
+* @tempus2016
+
+/.github/workflows/ @tempus2016
+/.github/CODEOWNERS @tempus2016
+/dist/ @tempus2016
+/rollup.config.js @tempus2016
+/package.json @tempus2016
+/package-lock.json @tempus2016
+/.gitignore @tempus2016

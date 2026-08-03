@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -42,6 +44,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -66,6 +70,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -79,11 +85,16 @@ jobs:
       - name: Rebuild the bundle
         run: npm run build
 
+      # --ignored=matching, not `git diff`: .gitignore allow-lists dist/ down to
+      # the one tracked bundle, so a build redirected to any other name under
+      # dist/ would leave the tracked file untouched and pass a diff-only check
+      # while shipping a hand-edited bundle. This sees untracked and ignored
+      # output too. build-config.test.js pins the output path as well.
       - name: Fail if dist/ differs from a fresh build
         run: |
-          if ! git diff --quiet -- dist/; then
+          if [ -n "$(git status --porcelain --ignored=matching -- dist/)" ]; then
             echo "::error file=dist/family-hub-card.js::dist/ is out of date. Run 'npm run build' and commit the result."
-            git diff --stat -- dist/
+            git status --porcelain --ignored=matching -- dist/
             exit 1
           fi
           echo "dist/ matches a fresh build of src/."

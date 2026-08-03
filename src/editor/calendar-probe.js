@@ -20,7 +20,7 @@ export async function probeCalendars(hass, entityIds, now = new Date(), tz = 'UT
   await Promise.all(
     (entityIds || []).map(async (id) => {
       try {
-        const raw = await hass.callApi('GET', `calendars/${id}?${qs}`);
+        const raw = await hass.callApi('GET', `calendars/${encodeURIComponent(id)}?${qs}`);
         results[id] = { count: (raw || []).length };
       } catch (err) {
         results[id] = { error: err?.message || String(err) };

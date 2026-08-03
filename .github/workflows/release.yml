@@ -19,6 +19,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.release.tag_name }}
+          # This job's token can write to the repo. Left persisted, it sits in
+          # .git/config while npm install scripts and build plugins run, so any
+          # compromised dependency could read it and push. Nothing here uses git
+          # over the network, so drop it.
+          persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -33,15 +38,20 @@ jobs:
 
       - run: npm run build
 
+      # --ignored=matching, not `git diff`: .gitignore allow-lists dist/ down to
+      # the one tracked bundle, so a build redirected to any other name under
+      # dist/ would leave the tracked file untouched and pass a diff-only check
+      # while shipping a hand-edited bundle. This sees untracked and ignored
+      # output too.
       - name: Fail if the tagged dist/ was stale
         run: |
-          if ! git diff --quiet -- dist/; then
+          if [ -n "$(git status --porcelain --ignored=matching -- dist/)" ]; then
             echo "::error::The tagged commit's dist/ does not match a fresh build. Rebuild, commit, and re-tag."
-            git diff --stat -- dist/
+            git status --porcelain --ignored=matching -- dist/
             exit 1
           fi
 
       - name: Attach card to release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: dist/family-hub-card.js
