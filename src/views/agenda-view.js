@@ -54,8 +54,8 @@ export class FamilyHubAgenda extends LitElement {
       .past { opacity: 0.45; }
       .empty { padding: 14px 0; color: var(--fh-text-dim); font-size: 16px; }
 
-      .now { background: #4A9EFF; height: 2px; border-radius: 1px; margin: 3px 0; position: relative; }
-      .now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: #4A9EFF; }
+      .now { background: var(--fh-now); height: 2px; border-radius: 1px; margin: 3px 0; position: relative; }
+      .now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--fh-now); }
 
       .pcard { background: var(--fh-surface); border-radius: var(--fh-radius-inner); padding: 14px 15px; margin-bottom: 11px; border-left: 4px solid var(--pc); }
       .phead { display: flex; align-items: center; gap: 13px; }

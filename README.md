@@ -38,6 +38,7 @@ Full instructions, including manual install: [Installation](https://github.com/t
 ```yaml
 type: custom:family-hub-card
 view: agenda
+theme: auto
 refresh_interval: 300
 chore_filter: today
 confirm_window: 3
@@ -54,6 +55,7 @@ people:
 
 | Option | Default | Notes |
 |---|---|---|
+| `theme` | `auto` | `auto` follows Home Assistant's dark mode. `dark` or `light` pins it — useful for a wall tablet |
 | `view` | `agenda` | `columns` and `week` are accepted but render agenda for now |
 | `refresh_interval` | `300` | Seconds; minimum 60. One HTTP call per calendar per refresh |
 | `chore_filter` | `today` | `today` = overdue, due today and undated. `all` = everything |

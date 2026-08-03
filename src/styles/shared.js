@@ -1,26 +1,26 @@
 import { css } from 'lit';
 
 /**
- * The card ships its own visual language rather than inheriting Home
- * Assistant's theme wholesale. Values are ported from mockups/c.html, which is
- * the approved visual spec.
+ * Design tokens. Defined once, on the card host only — custom properties
+ * inherit through shadow roots, so redefining them on a child component's
+ * :host would shadow the inherited value and break theme switching.
  *
- * Every token is a `--fh-*` custom property, so a theme or a card-mod user can
- * override any of it. Overriding is opt-in; the default is the designed look.
+ * Dark values are ported from mockups/c.html, which is the visual spec. Light
+ * values are the same design retuned, not Home Assistant's raw theme variables:
+ * inheriting those wholesale is what made the card look generic in the first
+ * place.
  *
- * Fonts follow the mockup's stack: IBM Plex if the user has it, system fonts
- * otherwise. No webfont is bundled or fetched.
+ * Every token can still be overridden by a theme or card-mod, because each one
+ * reads an optional `--fh-*-color` first.
  */
-export const sharedStyles = css`
+export const tokens = css`
   :host {
-    /* Surfaces */
     --fh-bg: var(--fh-card-bg, #12151c);
     --fh-surface: var(--fh-surface-bg, #181c26);
     --fh-chip: var(--fh-chip-bg, #232838);
     --fh-rule: var(--fh-rule-color, #232838);
     --fh-rule-soft: var(--fh-rule-soft-color, #1f2431);
 
-    /* Text */
     --fh-text: var(--fh-text-color, #e8eaf0);
     --fh-text-strong: var(--fh-text-strong-color, #ffffff);
     --fh-text-mute: var(--fh-text-mute-color, #9aa3b8);
@@ -28,16 +28,39 @@ export const sharedStyles = css`
     --fh-text-dim: var(--fh-text-dim-color, #5d6579);
     --fh-text-faint: var(--fh-text-faint-color, #6d768c);
     --fh-chore-text: var(--fh-chore-text-color, #c3c9d8);
+    --fh-now: var(--fh-now-color, #4A9EFF);
 
-    /* Type */
     --fh-font: var(--fh-font-family, 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif);
     --fh-mono: var(--fh-font-mono, 'IBM Plex Mono', 'SF Mono', ui-monospace, monospace);
 
-    /* Shape */
     --fh-radius: 16px;
     --fh-radius-inner: 12px;
     --fh-touch: 44px;
+  }
 
+  :host([data-scheme='light']) {
+    --fh-bg: var(--fh-card-bg, #ffffff);
+    --fh-surface: var(--fh-surface-bg, #f4f6f9);
+    --fh-chip: var(--fh-chip-bg, #e3e7ee);
+    --fh-rule: var(--fh-rule-color, #e3e7ee);
+    --fh-rule-soft: var(--fh-rule-soft-color, #edf0f5);
+
+    --fh-text: var(--fh-text-color, #1b1f28);
+    --fh-text-strong: var(--fh-text-strong-color, #000000);
+    --fh-text-mute: var(--fh-text-mute-color, #5b6478);
+    --fh-text-soft: var(--fh-text-soft-color, #6b7488);
+    --fh-text-dim: var(--fh-text-dim-color, #8a92a4);
+    --fh-text-faint: var(--fh-text-faint-color, #949cad);
+    --fh-chore-text: var(--fh-chore-text-color, #2b3140);
+  }
+`;
+
+/**
+ * Utility classes shared by the card shell and the views. These only consume
+ * tokens — they never define them.
+ */
+export const sharedStyles = css`
+  :host {
     display: block;
     font-family: var(--fh-font);
     color: var(--fh-text);
@@ -83,7 +106,7 @@ export const sharedStyles = css`
 
   .notice {
     font-size: 13px;
-    color: var(--error-color, #ff6b6b);
+    color: var(--error-color, #d64545);
     padding: 6px 0 2px;
   }
 

@@ -4,6 +4,7 @@ export const PALETTE = [
 ];
 
 const VIEWS = ['agenda', 'columns', 'week'];
+const THEMES = ['auto', 'dark', 'light'];
 
 function slug(name) {
   return String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -19,6 +20,11 @@ export function normaliseConfig(raw) {
   const view = cfg.view || 'agenda';
   if (!VIEWS.includes(view)) {
     throw new Error(`family-hub-card: unknown \`view\` "${view}" — expected one of ${VIEWS.join(', ')}`);
+  }
+
+  const theme = cfg.theme || 'auto';
+  if (!THEMES.includes(theme)) {
+    throw new Error(`family-hub-card: unknown \`theme\` "${theme}" — expected one of ${THEMES.join(', ')}`);
   }
 
   const seen = new Set();
@@ -48,6 +54,7 @@ export function normaliseConfig(raw) {
 
   return {
     view,
+    theme,
     refreshInterval: Math.max(60, Number(cfg.refresh_interval ?? 300)),
     choreFilter: cfg.chore_filter === 'all' ? 'all' : 'today',
     confirmWindow: cfg.confirm_window === 0 ? 0 : Number(cfg.confirm_window ?? 3),
