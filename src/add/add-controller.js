@@ -39,6 +39,19 @@ export function supportsDueDate(hass, entityId) {
   return supports(hass, entityId, TODO_DUE_DATE);
 }
 
+/**
+ * Every to-do list configured on the card, flagged with whether it can take a
+ * new item. Lists that cannot are still shown, disabled, with a reason — a list
+ * that simply vanishes from the picker reads as a bug in this card rather than
+ * a deliberate limit of the integration behind it.
+ */
+export function todoListOptions(hass, config) {
+  return (config.people || [])
+    .map((p) => p.todo)
+    .filter((id, i, arr) => id && arr.indexOf(id) === i)
+    .map((id) => ({ id, canCreate: supports(hass, id, TODO_CREATE) }));
+}
+
 /** Calendars configured on this card that can accept new events. */
 export function creatableCalendars(hass, config) {
   return (config.people || [])

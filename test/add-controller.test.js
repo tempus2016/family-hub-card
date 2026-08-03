@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { availableTypes, todoPayload, eventPayload, supportsDueDate } from '../src/add/add-controller.js';
+import { availableTypes, todoPayload, eventPayload, supportsDueDate, todoListOptions } from '../src/add/add-controller.js';
 
 const CREATE = 1;
 const UPDATE = 4;
@@ -139,5 +139,30 @@ describe('supportsDueDate', () => {
 
   it('is false for an entity missing from hass', () => {
     expect(supportsDueDate(hass(), 'todo.nope')).toBe(false);
+  });
+});
+
+describe('todoListOptions', () => {
+  it('includes lists that cannot create, flagged', () => {
+    const h = hass({ states: {
+      'todo.stock': { attributes: { supported_features: 15 } },
+      'todo.taskmate_a': { attributes: { supported_features: UPDATE } },
+    } });
+    const cfg2 = { people: [{ todo: 'todo.stock' }, { todo: 'todo.taskmate_a' }] };
+    expect(todoListOptions(h, cfg2)).toEqual([
+      { id: 'todo.stock', canCreate: true },
+      { id: 'todo.taskmate_a', canCreate: false },
+    ]);
+  });
+
+  it('de-duplicates a list shared by two people', () => {
+    const h = hass({ states: { 'todo.shared': { attributes: { supported_features: 15 } } } });
+    const cfg2 = { people: [{ todo: 'todo.shared' }, { todo: 'todo.shared' }] };
+    expect(todoListOptions(h, cfg2)).toHaveLength(1);
+  });
+
+  it('skips people with no list', () => {
+    const h = hass({ states: {} });
+    expect(todoListOptions(h, { people: [{ name: 'x' }] })).toEqual([]);
   });
 });
