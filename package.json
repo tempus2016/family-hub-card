@@ -1,6 +1,6 @@
 {
   "name": "family-hub-card",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Home Assistant Lovelace card for a wall-mounted family tablet: today's schedule for everyone plus who owes which chore.",
   "type": "module",
   "license": "MIT",
