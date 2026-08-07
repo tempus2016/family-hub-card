@@ -9,13 +9,9 @@
   <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
   <a href="https://github.com/tempus2016/family-hub-card/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
   <img src="https://img.shields.io/badge/Home%20Assistant-2024.1+-blue" alt="HA Version">
-</p>
-
-<!-- Add once v0.1.0 is published — both render as red error badges until the
-     first release exists:
   <a href="https://github.com/tempus2016/family-hub-card/releases"><img src="https://img.shields.io/github/v/release/tempus2016/family-hub-card" alt="Latest Release"></a>
   <a href="https://github.com/tempus2016/family-hub-card/releases"><img src="https://img.shields.io/github/downloads/tempus2016/family-hub-card/total" alt="Downloads"></a>
--->
+</p>
 
 <p align="center">
   <a href="https://github.com/tempus2016/family-hub-card/actions/workflows/validate.yml"><img src="https://github.com/tempus2016/family-hub-card/actions/workflows/validate.yml/badge.svg" alt="HACS Validation"></a>
