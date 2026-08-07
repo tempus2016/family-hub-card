@@ -66,10 +66,21 @@ class FamilyHubCard extends LitElement {
         padding-bottom: 15px;
         border-bottom: 1px solid var(--fh-rule);
       }
+      /* Let the left column wrap its date within its own width instead of
+         pushing the clock off the right edge. Without min-width:0 a flex item
+         refuses to shrink below its content, so a long date overflows the card
+         on a phone. */
+      .headmain { min-width: 0; }
       .date { font-size: 32px; font-weight: 600; letter-spacing: -0.6px; color: var(--fh-text); }
       .sub { font-size: 15px; color: var(--fh-text-dim); margin-top: 3px; }
       .meta { display: flex; align-items: center; gap: 18px; font-size: 19px; color: var(--fh-text-mute); flex-shrink: 0; }
       .clock { font-size: 44px; font-weight: 300; letter-spacing: -1.5px; color: var(--fh-text-strong); font-variant-numeric: tabular-nums; line-height: 1; }
+      /* Narrow (phone) reuses the card's <900px collapse: the wall-sized date
+         and clock don't fit a phone header, so scale them and tighten gaps. */
+      .head[data-narrow='true'] { gap: 12px; margin-bottom: 16px; }
+      .head[data-narrow='true'] .date { font-size: 23px; }
+      .head[data-narrow='true'] .clock { font-size: 30px; }
+      .head[data-narrow='true'] .meta { gap: 12px; }
       .nav { display: flex; align-items: center; gap: 6px; }
       .navbtn { min-width: var(--fh-touch); min-height: var(--fh-touch); border-radius: 10px; border: none; background: none; color: var(--fh-text-mute); font-size: 22px; line-height: 1; cursor: pointer; }
       .navbtn:hover { background: var(--fh-surface); color: var(--fh-text); }
@@ -268,8 +279,8 @@ class FamilyHubCard extends LitElement {
 
     return html`
       <ha-card>
-        <div class="head">
-          <div>
+        <div class="head" data-narrow=${String(this._narrow)}>
+          <div class="headmain">
             <div class="nav">
               <button class="navbtn" aria-label="Previous" @click=${() => this._page(-1)}>‹</button>
               <div class="date">${this._headerDate(this._viewDate(now))}</div>
