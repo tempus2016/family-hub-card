@@ -630,10 +630,21 @@ const x=globalThis,w=t=>t,k=x.trustedTypes,A=k?k.createPolicy("lit-html",{create
         padding-bottom: 15px;
         border-bottom: 1px solid var(--fh-rule);
       }
+      /* Let the left column wrap its date within its own width instead of
+         pushing the clock off the right edge. Without min-width:0 a flex item
+         refuses to shrink below its content, so a long date overflows the card
+         on a phone. */
+      .headmain { min-width: 0; }
       .date { font-size: 32px; font-weight: 600; letter-spacing: -0.6px; color: var(--fh-text); }
       .sub { font-size: 15px; color: var(--fh-text-dim); margin-top: 3px; }
       .meta { display: flex; align-items: center; gap: 18px; font-size: 19px; color: var(--fh-text-mute); flex-shrink: 0; }
       .clock { font-size: 44px; font-weight: 300; letter-spacing: -1.5px; color: var(--fh-text-strong); font-variant-numeric: tabular-nums; line-height: 1; }
+      /* Narrow (phone) reuses the card's <900px collapse: the wall-sized date
+         and clock don't fit a phone header, so scale them and tighten gaps. */
+      .head[data-narrow='true'] { gap: 12px; margin-bottom: 16px; }
+      .head[data-narrow='true'] .date { font-size: 23px; }
+      .head[data-narrow='true'] .clock { font-size: 30px; }
+      .head[data-narrow='true'] .meta { gap: 12px; }
       .nav { display: flex; align-items: center; gap: 6px; }
       .navbtn { min-width: var(--fh-touch); min-height: var(--fh-touch); border-radius: 10px; border: none; background: none; color: var(--fh-text-mute); font-size: 22px; line-height: 1; cursor: pointer; }
       .navbtn:hover { background: var(--fh-surface); color: var(--fh-text); }
@@ -655,8 +666,8 @@ const x=globalThis,w=t=>t,k=x.trustedTypes,A=k?k.createPolicy("lit-html",{create
       }
     `];setConfig(t){this._config=mt(t),this._applyScheme(),Vt.includes(this._config.view)||console.warn(`family-hub-card: view "${this._config.view}" is not implemented yet — rendering agenda.`),this._hub?.stop(),this._hub=null}set hass(t){const e=this._hass;this._hass=t,this._applyScheme(),this._hub&&this._hub.hassChanged(e),!this._hub&&this._config&&(this._hub=new zt({config:this._config,getHass:()=>this._hass,getNow:()=>new Date,onChange:()=>this.requestUpdate(),schedule:(t,e)=>{const i=setInterval(t,e);return()=>clearInterval(i)}}),this._hub.start(),this._hub.refresh()),this.requestUpdate()}get hass(){return this._hass}_applyScheme(){const t=Zt(this._hass,this._config?.theme);this.dataset.scheme!==t&&(this.dataset.scheme=t,this.requestUpdate())}connectedCallback(){super.connectedCallback(),this._applyScheme(),this._ro=new ResizeObserver(([t])=>{const e=t.contentRect.width<900;e!==this._narrow&&(this._narrow=e,this._hub&&(this._hub.windowDays="week"===this._effectiveView?7:1),this.requestUpdate())}),this._ro.observe(this),this._scheduleTick(),this._onOnline=()=>this._hub?.refresh(),window.addEventListener("online",this._onOnline)}disconnectedCallback(){super.disconnectedCallback(),this._ro?.disconnect(),clearTimeout(this._tickTimer),clearTimeout(this._returnTimer),window.removeEventListener("online",this._onOnline),this._hub?.stop()}_scheduleTick(){this._tickTimer=setTimeout(()=>{this._tick=Date.now(),this._scheduleTick()},function(t){const e=t.getTime()%6e4;return 0===e?6e4:6e4-e}(new Date))}getCardSize(){return 12}static getConfigElement(){return document.createElement("family-hub-card-editor")}static getStubConfig(){return{view:"agenda",people:[{name:"Ana",todo:"todo.ana"}]}}get _effectiveView(){return"week"===this._config.view&&this._narrow?"agenda":this._config.view}_headerDate(t){if("week"===this._effectiveView){return`Week of ${new Intl.DateTimeFormat(void 0,{day:"numeric",month:"long"}).format(t)}`}return new Intl.DateTimeFormat(void 0,{weekday:"long",day:"numeric",month:"long"}).format(t)}get _pageStep(){return"week"===this._effectiveView?7:1}_viewDate(t){return new Date(t.getTime()+24*(this._offset||0)*3600*1e3)}_page(t){this._setOffset((this._offset||0)+t*this._pageStep)}_goToday(){this._setOffset(0)}_setOffset(t){this._offset=t,this._hub&&(this._hub.startOffset=t),this._armReturn(),this.requestUpdate()}_armReturn(){clearTimeout(this._returnTimer);const t=this._config?.returnToToday;t&&this._offset&&(this._returnTimer=setTimeout(()=>this._goToday(),1e3*t))}_onChoreTap(t){const{personId:e,choreId:i}=t.detail;this._hub?.complete(e,i)}render(){if(!this._config)return L;if(!this._hass||!this._hub)return j`<ha-card><div class="loading">Loading…</div></ha-card>`;const t=new Date,e=this._hub.model,i=this._config.header.weather?this._hass.states[this._config.header.weather]:null,s=Kt(this._hass,this._config.header.subtitle);return j`
       <ha-card>
-        <div class="head">
-          <div>
+        <div class="head" data-narrow=${String(this._narrow)}>
+          <div class="headmain">
             <div class="nav">
               <button class="navbtn" aria-label="Previous" @click=${()=>this._page(-1)}>‹</button>
               <div class="date">${this._headerDate(this._viewDate(t))}</div>
