@@ -30,7 +30,7 @@ export function eventTime(event, tz) {
  * A completion that only exists in TaskMate's record has no todo item behind
  * it, so it cannot be tapped — there is nothing left to update.
  */
-export function columnFor(person, inlineChores = false) {
+export function columnFor(person, inlineChores = false, hideChores = false) {
   const chores = [];
   const seen = new Set();
 
@@ -67,18 +67,22 @@ export function columnFor(person, inlineChores = false) {
 
   const remaining = inlineChores ? chores.filter((c) => !matched.has(c)) : chores;
 
+  // With the Tasks tab showing, the chores live there instead; rendering them
+  // here too would put every chore on screen twice.
+  const listed = hideChores ? [] : remaining;
+
   // With chores inline, the block below is only ever the leftovers, so an empty
   // one is dropped entirely. Keeping it would print "Chores · all done" over a
   // person who has done nothing — their chores merely moved onto their events.
-  const hasChores = inlineChores
-    ? remaining.length > 0
-    : Boolean(person.todo) || remaining.length > 0;
+  const hasChores = hideChores
+    ? false
+    : (inlineChores ? listed.length > 0 : Boolean(person.todo) || listed.length > 0);
 
   return {
     person,
     events: pairs,
-    chores: remaining,
-    outstanding: remaining.filter((c) => !c.done).length,
+    chores: listed,
+    outstanding: listed.filter((c) => !c.done).length,
     hasChores,
   };
 }
@@ -90,6 +94,7 @@ export class FamilyHubColumns extends LitElement {
     readOnly: { attribute: false },
     confirmWindow: { attribute: false },
     inlineChores: { attribute: false },
+    hideChores: { attribute: false },
     _pending: { state: true },
   };
 
@@ -198,7 +203,7 @@ export class FamilyHubColumns extends LitElement {
     const tz = this.tz || 'UTC';
     return html`
       <div class="cols" style="--cols:${Math.min(this._cols, this.model.people.length || 1)}">
-        ${this.model.people.map((p) => this._column(columnFor(p, this.inlineChores), tz))}
+        ${this.model.people.map((p) => this._column(columnFor(p, this.inlineChores, this.hideChores), tz))}
       </div>
     `;
   }

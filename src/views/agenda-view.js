@@ -75,6 +75,7 @@ export class FamilyHubAgenda extends LitElement {
     confirmWindow: { attribute: false },
     readOnly: { attribute: false },
     inlineChores: { attribute: false },
+    hideChores: { attribute: false },
     _pending: { state: true },
   };
 
@@ -257,6 +258,24 @@ export class FamilyHubAgenda extends LitElement {
 
   _person(p, link) {
     const matched = link?.matchedRefs || new Set();
+
+    // With the Tasks tab showing, the chores live there — the person card keeps
+    // only their name, summary line and points.
+    if (this.hideChores) {
+      return html`
+        <div class="pcard" style="--pc:${p.color}">
+          <div class="phead">
+            <div class="av">${p.initials}</div>
+            <div>
+              <div class="nm">${p.name}</div>
+              <div class="nextc">${this._summary(p, (p.chores || []).filter((c) => c.status !== 'completed'))}</div>
+            </div>
+            ${this._points(p)}
+          </div>
+        </div>
+      `;
+    }
+
     const outstanding = (p.chores || []).filter((c) => c.status !== 'completed');
     const done = (p.chores || []).filter((c) => c.status === 'completed');
     const doneToday = p.completedToday || [];
