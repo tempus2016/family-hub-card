@@ -12,13 +12,10 @@ coverage/
 *.log
 npm-debug.log*
 
-# Scratch space for local screenshots and throwaway files
+# Scratch space: local screenshots, throwaway files and planning notes. Named
+# generically on purpose — the ignore has to survive a fresh clone, but the
+# repo should not advertise what is kept here.
 .tmp/
-
-# Local planning notes. Tracked here rather than in .git/info/exclude, which is
-# per-clone: on a fresh clone these stop being ignored and can be committed to
-# a public repo by accident.
-docs/superpowers/
 
 # Editor / OS
 .DS_Store
