@@ -330,6 +330,7 @@ class FamilyHubCard extends LitElement {
               .tz=${this._hass.config?.time_zone || 'UTC'}
               .readOnly=${Boolean(this._offset)}
               .confirmWindow=${this._config.confirmWindow}
+              .inlineChores=${this._config.inlineChores}
               @chore-tap=${(e) => this._onChoreTap(e)}
             ></family-hub-columns>`
           : this._effectiveView === 'week'
@@ -344,6 +345,7 @@ class FamilyHubCard extends LitElement {
               .now=${this._viewDate(now)}
               .readOnly=${Boolean(this._offset)}
               .confirmWindow=${this._config.confirmWindow}
+              .inlineChores=${this._config.inlineChores}
               @chore-tap=${(e) => this._onChoreTap(e)}
             ></family-hub-agenda>`}
       </ha-card>

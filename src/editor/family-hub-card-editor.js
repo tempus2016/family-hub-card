@@ -241,6 +241,10 @@ export class FamilyHubCardEditor extends LitElement {
             )}
           </select>
         </label>
+        <label>Tick chores on their event
+          <input type="checkbox" .checked=${Boolean(c.inline_chores)}
+            @change=${(e) => this._setCard('inline_chores', e.target.checked)} />
+        </label>
       </div>
 
       <div class="group row">
