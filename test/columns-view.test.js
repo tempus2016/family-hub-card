@@ -205,3 +205,17 @@ describe('columnFor with inline chores', () => {
     expect(columnFor(p, true).events[0].chore.pending).toBe(false);
   });
 });
+
+describe('columnFor with chores hidden', () => {
+  it('drops the chores block entirely when hideChores is set', () => {
+    const p = person({ chores: [{ id: '1', summary: 'Tidy bedroom', status: 'needs_action' }] });
+    const col = columnFor(p, false, true);
+    expect(col.hasChores).toBe(false);
+    expect(col.chores).toEqual([]);
+  });
+
+  it('keeps the chores block when hideChores is not set', () => {
+    const p = person({ chores: [{ id: '1', summary: 'Tidy bedroom', status: 'needs_action' }] });
+    expect(columnFor(p, false, false).hasChores).toBe(true);
+  });
+});

@@ -40,3 +40,34 @@ describe('resolveScheme', () => {
     expect(resolveScheme({ themes: {} }, 'auto')).toBe('dark');
   });
 });
+
+// The card class is not exported; reach it through the registry the module
+// populates on import, the same way test/editor.test.js does.
+describe('tab state', () => {
+  const makeCard = (config) => {
+    const Card = customElements.get('family-hub-card');
+    const card = new Card();
+    // The node test environment has no real DOM, so `dataset` is missing and
+    // `_applyScheme` would throw. Stubbing it keeps this a pure state test.
+    card.dataset = {};
+    card.setConfig(config);
+    return card;
+  };
+
+  const base = { type: 'custom:family-hub-card', people: [{ name: 'Ana', todo: 'todo.ana' }] };
+
+  it('starts on the calendar tab', () => {
+    expect(makeCard({ ...base, tabs: true })._tab).toBe('calendar');
+  });
+
+  it('returns to the calendar tab when going back to today', () => {
+    const card = makeCard({ ...base, tabs: true });
+    card._tab = 'tasks';
+    card._goToday();
+    expect(card._tab).toBe('calendar');
+  });
+
+  it('leaves tabs off by default', () => {
+    expect(makeCard(base)._config.tabs).toBe(false);
+  });
+});

@@ -6,6 +6,7 @@ import { msUntilNextMinute } from './data/time.js';
 import './views/agenda-view.js';
 import './views/week-view.js';
 import './views/columns-view.js';
+import './views/tasks-view.js';
 import './add/add-dialog.js';
 import { availableTypes } from './add/add-controller.js';
 // Registers <family-hub-card-editor>, which getConfigElement() instantiates by
@@ -40,7 +41,16 @@ export function resolveSubtitle(hass, subtitle) {
 }
 
 class FamilyHubCard extends LitElement {
-  static properties = { _tick: { state: true }, _offset: { state: true } };
+  static properties = {
+    _tick: { state: true },
+    _offset: { state: true },
+    _tab: { state: true },
+  };
+
+  constructor() {
+    super();
+    this._tab = 'calendar';
+  }
 
   static styles = [
     tokens,
@@ -49,6 +59,9 @@ class FamilyHubCard extends LitElement {
       /* Metrics ported from mockups/c.html — .wt and .wt-top. The card paints
          its own surface rather than inheriting ha-card's, so the designed look
          survives whatever theme the dashboard is using. */
+      .tabs { display: inline-flex; gap: 4px; margin-left: 14px; }
+      .tab { background: none; border: none; color: var(--fh-text-mute); font: inherit; font-size: 14px; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+      .tab.on { background: var(--fh-chip); color: var(--fh-text); }
       ha-card {
         background: var(--fh-bg);
         border-radius: var(--fh-radius);
@@ -238,6 +251,7 @@ class FamilyHubCard extends LitElement {
 
   _goToday() {
     this._setOffset(0);
+    this._tab = 'calendar';
   }
 
   _setOffset(offset) {
@@ -286,6 +300,18 @@ class FamilyHubCard extends LitElement {
               <div class="date">${this._headerDate(this._viewDate(now))}</div>
               <button class="navbtn" aria-label="Next" @click=${() => this._page(1)}>›</button>
             </div>
+            ${this._config.tabs
+              ? html`<div class="tabs" role="tablist">
+                  ${['calendar', 'tasks'].map(
+                    (t) => html`<button
+                      class="tab ${this._tab === t ? 'on' : ''}"
+                      role="tab"
+                      aria-selected=${this._tab === t ? 'true' : 'false'}
+                      @click=${() => { this._tab = t; }}
+                    >${t === 'calendar' ? 'Calendar' : 'Tasks'}</button>`,
+                  )}
+                </div>`
+              : nothing}
             ${this._offset
               ? html`<button class="today" @click=${() => this._goToday()}>Today</button>`
               : nothing}
@@ -324,13 +350,23 @@ class FamilyHubCard extends LitElement {
           .date=${this._viewDate(now)}
           @created=${() => this._hub?.refresh()}
         ></family-hub-add-dialog>
-        ${this._effectiveView === 'columns'
+        ${this._config.tabs && this._tab === 'tasks'
+          ? html`<family-hub-tasks
+              .model=${model}
+              .now=${this._viewDate(now)}
+              .tz=${this._hass.config?.time_zone || 'UTC'}
+              .readOnly=${Boolean(this._offset)}
+              .confirmWindow=${this._config.confirmWindow}
+              @chore-tap=${(e) => this._onChoreTap(e)}
+            ></family-hub-tasks>`
+          : this._effectiveView === 'columns'
           ? html`<family-hub-columns
               .model=${model}
               .tz=${this._hass.config?.time_zone || 'UTC'}
               .readOnly=${Boolean(this._offset)}
               .confirmWindow=${this._config.confirmWindow}
               .inlineChores=${this._config.inlineChores}
+              .hideChores=${this._config.tabs}
               @chore-tap=${(e) => this._onChoreTap(e)}
             ></family-hub-columns>`
           : this._effectiveView === 'week'
@@ -346,6 +382,7 @@ class FamilyHubCard extends LitElement {
               .readOnly=${Boolean(this._offset)}
               .confirmWindow=${this._config.confirmWindow}
               .inlineChores=${this._config.inlineChores}
+              .hideChores=${this._config.tabs}
               @chore-tap=${(e) => this._onChoreTap(e)}
             ></family-hub-agenda>`}
       </ha-card>
