@@ -112,3 +112,17 @@ describe('calendar toggling', () => {
     expect(emitted[0].people[0].calendars).toEqual(['calendar.a']);
   });
 });
+
+describe('inline chores option', () => {
+  it('emits inline_chores from the editor control', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', todo: 'todo.ana' }] });
+    ed._setCard('inline_chores', true);
+    expect(emitted[emitted.length - 1].inline_chores).toBe(true);
+  });
+
+  it('round-trips through normaliseConfig', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', todo: 'todo.ana' }] });
+    ed._setCard('inline_chores', true);
+    expect(normaliseConfig(emitted[emitted.length - 1]).inlineChores).toBe(true);
+  });
+});

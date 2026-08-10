@@ -81,3 +81,106 @@ describe('columnFor', () => {
     expect(columnFor(person({ todo: 'todo.ana', chores: [] })).hasChores).toBe(true);
   });
 });
+
+describe('columnFor with inline chores', () => {
+  const evt = (summary) => ({
+    id: `e-${summary}`, summary, allDay: false,
+    start: new Date('2026-08-10T06:00:00Z'), end: new Date('2026-08-10T12:00:00Z'),
+  });
+
+  it('leaves events unpaired and chores intact when inlineChores is off', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [{ id: '1', summary: 'Make bed', status: 'needs_action' }],
+    });
+    const col = columnFor(p);
+    expect(col.events.map((x) => x.chore)).toEqual([null]);
+    expect(col.chores.map((c) => c.summary)).toEqual(['Make bed']);
+  });
+
+  it('moves a matched chore onto its event when inlineChores is on', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [{ id: '1', summary: 'Make bed', status: 'needs_action' }],
+    });
+    const col = columnFor(p, true);
+    expect(col.events[0].chore.summary).toBe('Make bed');
+    expect(col.events[0].chore.tappable).toBe(true);
+    expect(col.chores).toEqual([]);
+  });
+
+  it('keeps an unmatched chore in the list', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [
+        { id: '1', summary: 'Make bed', status: 'needs_action' },
+        { id: '2', summary: 'Tidy bedroom', status: 'needs_action' },
+      ],
+    });
+    const col = columnFor(p, true);
+    expect(col.chores.map((c) => c.summary)).toEqual(['Tidy bedroom']);
+    expect(col.outstanding).toBe(1);
+  });
+
+  it('moves a completed chore onto its event too', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [{ id: '1', summary: 'Make bed', status: 'completed' }],
+    });
+    const col = columnFor(p, true);
+    expect(col.events[0].chore.done).toBe(true);
+    expect(col.events[0].chore.tappable).toBe(false);
+    expect(col.chores).toEqual([]);
+  });
+
+  it('moves a TaskMate-only completion onto its event, still untappable', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [],
+      completedToday: [{ choreId: 'c1', name: 'Make bed', approved: false }],
+    });
+    const col = columnFor(p, true);
+    expect(col.events[0].chore.done).toBe(true);
+    expect(col.events[0].chore.pending).toBe(true);
+    expect(col.events[0].chore.tappable).toBe(false);
+    expect(col.chores).toEqual([]);
+  });
+
+  it('prefers the outstanding chore over a completed one of the same name', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [
+        { id: 'done', summary: 'Make bed', status: 'completed' },
+        { id: 'open', summary: 'Make bed', status: 'needs_action' },
+      ],
+    });
+    const col = columnFor(p, true);
+    expect(col.events[0].chore.id).toBe('open');
+    expect(col.chores.map((c) => c.id)).toEqual(['done']);
+  });
+
+  // Otherwise the column prints "Chores · all done" over a person who has done
+  // nothing at all — their chores have merely moved onto their event rows.
+  it('drops the chores block when every chore moved to an event', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [{ id: '1', summary: 'Make bed', status: 'needs_action' }],
+    });
+    expect(columnFor(p, true).hasChores).toBe(false);
+  });
+
+  it('keeps the chores block when a leftover chore remains', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [
+        { id: '1', summary: 'Make bed', status: 'needs_action' },
+        { id: '2', summary: 'Tidy bedroom', status: 'needs_action' },
+      ],
+    });
+    expect(columnFor(p, true).hasChores).toBe(true);
+  });
+
+  it('still shows an empty chores block for a person with a list when inline is off', () => {
+    expect(columnFor(person({ todo: 'todo.ana', chores: [] }), false).hasChores).toBe(true);
+  });
+});

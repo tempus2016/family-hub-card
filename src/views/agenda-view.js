@@ -1,11 +1,49 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { sharedStyles } from '../styles/shared.js';
+import { linkChores } from '../data/link-chores.js';
 
-export function buildTimeline(people) {
+/**
+ * One person's chores as a single list the matcher can work on.
+ *
+ * The three groups agenda renders have two different shapes — to-do chores
+ * carry `summary`, TaskMate's completions carry `name` — so each is wrapped
+ * with a uniform `summary` and a `ref` back to the original object. Filtering
+ * by `ref` identity means the groups can be filtered without ids being unique.
+ *
+ * Order is the match priority: an outstanding chore claims its event ahead of a
+ * completed one of the same name.
+ */
+export function choreCandidates(person) {
+  const outstanding = [];
+  const completed = [];
+  for (const c of person.chores || []) {
+    const wrapped = { ref: c, summary: c.summary, kind: 'chore' };
+    if (c.status === 'completed') completed.push(wrapped);
+    else outstanding.push(wrapped);
+  }
+  const today = (person.completedToday || []).map((c) => ({ ref: c, summary: c.name, kind: 'today' }));
+  return [...outstanding, ...completed, ...today];
+}
+
+/** Pairs one person's events with their chores, or nothing when the option is off. */
+export function linkPerson(person, inlineChores) {
+  if (!inlineChores) {
+    return {
+      pairs: (person.events || []).map((event) => ({ event, chore: null })),
+      matchedRefs: new Set(),
+    };
+  }
+  const { pairs, matched } = linkChores(person.events, choreCandidates(person));
+  return { pairs, matchedRefs: new Set([...matched].map((w) => w.ref)) };
+}
+
+export function buildTimeline(people, linkedByPerson = null) {
   const rows = [];
   for (const person of people) {
-    for (const event of person.events || []) {
-      rows.push({ time: event.allDay ? null : event.start, allDay: event.allDay, event, person });
+    const pairs = linkedByPerson?.get(person.id)?.pairs
+      || (person.events || []).map((event) => ({ event, chore: null }));
+    for (const { event, chore } of pairs) {
+      rows.push({ time: event.allDay ? null : event.start, allDay: event.allDay, event, person, chore });
     }
   }
   return rows.sort((a, b) => {
@@ -35,6 +73,7 @@ export class FamilyHubAgenda extends LitElement {
     now: { attribute: false },
     confirmWindow: { attribute: false },
     readOnly: { attribute: false },
+    inlineChores: { attribute: false },
     _pending: { state: true },
   };
 
@@ -77,6 +116,7 @@ export class FamilyHubAgenda extends LitElement {
       .box { width: 19px; height: 19px; border-radius: 5px; background: var(--fh-chip); flex-shrink: 0; position: relative; }
       .box.filled { background: var(--pc); }
       .box.filled::after { content: '\\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--fh-bg); font-weight: 800; }
+      .tap.inline { display: inline-flex; vertical-align: middle; margin-right: 8px; }
       .ring { animation: fh-ring var(--fh-window, 3s) linear forwards; }
       @keyframes fh-ring { from { opacity: 1; } to { opacity: 0.35; } }
       .waiting { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--warning-color, #FFB84A); font-weight: 600; flex-shrink: 0; }
@@ -171,7 +211,10 @@ export class FamilyHubAgenda extends LitElement {
 
   render() {
     if (!this.model) return nothing;
-    const timeline = buildTimeline(this.model.people);
+    const linked = new Map(
+      this.model.people.map((p) => [p.id, linkPerson(p, this.inlineChores)]),
+    );
+    const timeline = buildTimeline(this.model.people, linked);
     const nowIdx = nowLineIndex(timeline, this.now);
 
     const rows = [];
@@ -182,7 +225,9 @@ export class FamilyHubAgenda extends LitElement {
           <div class="agt">${r.allDay ? 'All day' : this._fmt(r.time)}</div>
           <div class="agbar"></div>
           <div>
-            <div class="agn">${r.event.summary}</div>
+            <div class="agn">
+              ${r.chore ? this._eventBox(r.person, r.chore) : nothing}${r.event.summary}
+            </div>
             <div class="agw">
               ${r.person.name}${r.event.location ? html` · ${r.event.location}` : nothing}
             </div>
@@ -202,17 +247,25 @@ export class FamilyHubAgenda extends LitElement {
         </div>
         <div>
           <div class="sec-l">Chores &amp; points</div>
-          ${this.model.people.map((p) => this._person(p))}
+          ${this.model.people.map((p) => this._person(p, linked.get(p.id)))}
         </div>
       </div>
     `;
   }
 
-  _person(p) {
+  _person(p, link) {
+    const matched = link?.matchedRefs || new Set();
     const outstanding = (p.chores || []).filter((c) => c.status !== 'completed');
     const done = (p.chores || []).filter((c) => c.status === 'completed');
     const doneToday = p.completedToday || [];
-    const hasRows = outstanding.length || done.length || doneToday.length;
+
+    // Anything whose box moved onto the timeline drops out of the list here.
+    // `outstanding` stays unfiltered for the "Next: X" line below, which still
+    // names the chore even when its box lives on the timeline.
+    const restOutstanding = outstanding.filter((c) => !matched.has(c));
+    const restDone = done.filter((c) => !matched.has(c));
+    const restToday = doneToday.filter((c) => !matched.has(c));
+    const hasRows = restOutstanding.length || restDone.length || restToday.length;
 
     return html`
       <div class="pcard" style="--pc:${p.color}">
@@ -229,9 +282,9 @@ export class FamilyHubAgenda extends LitElement {
           : nothing}
         ${hasRows
           ? html`<div class="chores">
-              ${outstanding.map((c) => this._chore(p, c, 'open'))}
-              ${done.map((c) => this._chore(p, c, 'done'))}
-              ${doneToday.map(
+              ${restOutstanding.map((c) => this._chore(p, c, 'open'))}
+              ${restDone.map((c) => this._chore(p, c, 'done'))}
+              ${restToday.map(
                 (c) => html`
                   <div class="chore ${c.approved ? 'done' : 'pending'}">
                     <span class="tap"><span class="box filled"></span></span>
@@ -267,6 +320,32 @@ export class FamilyHubAgenda extends LitElement {
                 : nothing}
             </div>`}
       </div>
+    `;
+  }
+
+  /**
+   * The tick box on a timeline row that carries a chore. A TaskMate-only
+   * completion has no to-do item behind it, so it renders as a static filled
+   * box rather than a button — there is nothing left to update.
+   */
+  _eventBox(p, c) {
+    if (c.kind === 'today' || c.ref.status === 'completed') {
+      return html`<span class="tap inline"><span class="box filled"></span></span>`;
+    }
+    const key = `${p.id}:${c.ref.id}`;
+    const pending = this._pending.has(key);
+    return html`
+      <button
+        class="tap inline"
+        role="checkbox"
+        aria-checked=${pending ? 'true' : 'false'}
+        aria-label=${`Complete ${c.summary} for ${p.name}`}
+        @click=${() => this._tap(p.id, c.ref.id)}
+        ?disabled=${this.readOnly}
+      >
+        <span class="box ${pending ? 'filled' : ''} ${pending ? 'ring' : ''}"
+          style="--fh-window:${this.confirmWindow}s"></span>
+      </button>
     `;
   }
 

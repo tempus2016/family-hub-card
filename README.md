@@ -89,6 +89,7 @@ people:
 | `view` | `agenda` | `agenda`, `week` or `columns`. `week` falls back to agenda below 900px |
 | `refresh_interval` | `300` | Seconds; minimum 60. One HTTP call per calendar per refresh |
 | `chore_filter` | `today` | `today` = overdue, due today and undated. `all` = everything |
+| `inline_chores` | `false` | Tick a chore from its matching calendar event, and drop it from the chores list. Agenda and columns only |
 | `confirm_window` | `3` | Seconds to undo a tick before it is sent. `0` completes immediately |
 | `taskmate_chores` | — | TaskMate's chores sensor, for completed-today and approval state |
 | `people[].points` | — | A points sensor, shown as a balance beside the person |

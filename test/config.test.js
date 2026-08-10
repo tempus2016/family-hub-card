@@ -116,4 +116,16 @@ describe('normaliseConfig', () => {
   it('accepts columns and week without throwing', () => {
     expect(normaliseConfig({ ...minimal, view: 'week' }).view).toBe('week');
   });
+
+  it('defaults inline_chores to false', () => {
+    expect(normaliseConfig(minimal).inlineChores).toBe(false);
+  });
+
+  it('reads inline_chores when set', () => {
+    expect(normaliseConfig({ ...minimal, inline_chores: true }).inlineChores).toBe(true);
+  });
+
+  it('coerces a truthy inline_chores to a boolean', () => {
+    expect(normaliseConfig({ ...minimal, inline_chores: 'yes' }).inlineChores).toBe(true);
+  });
 });
