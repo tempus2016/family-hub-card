@@ -128,4 +128,18 @@ describe('normaliseConfig', () => {
   it('coerces a truthy inline_chores to a boolean', () => {
     expect(normaliseConfig({ ...minimal, inline_chores: 'yes' }).inlineChores).toBe(true);
   });
+
+  it('defaults tabs to false', () => {
+    expect(normaliseConfig(minimal).tabs).toBe(false);
+  });
+
+  it('reads tabs when set', () => {
+    expect(normaliseConfig({ ...minimal, tabs: true }).tabs).toBe(true);
+  });
+
+  it('ignores tabs when chores are already inline', () => {
+    const cfg = normaliseConfig({ ...minimal, tabs: true, inline_chores: true });
+    expect(cfg.tabs).toBe(false);
+    expect(cfg.inlineChores).toBe(true);
+  });
 });
