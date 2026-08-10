@@ -1,5 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { sharedStyles } from '../styles/shared.js';
+import { choreProgress } from '../data/chore-progress.js';
 import { localParts, isSameLocalDay } from '../data/time.js';
 
 /**
@@ -70,14 +71,7 @@ export function barPeriod(offsetDays, now) {
   return `Week of ${fmt.format(now)}`;
 }
 
-/** Today's chore completion for the progress bars. */
-export function choreProgress(person) {
-  const chores = person.chores || [];
-  const outstanding = chores.filter((c) => c.status !== 'completed').length;
-  const done = chores.filter((c) => c.status === 'completed').length + (person.completedToday || []).length;
-  const total = outstanding + done;
-  return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
-}
+export { choreProgress };
 
 export class FamilyHubWeek extends LitElement {
   static properties = {

@@ -183,4 +183,25 @@ describe('columnFor with inline chores', () => {
   it('still shows an empty chores block for a person with a list when inline is off', () => {
     expect(columnFor(person({ todo: 'todo.ana', chores: [] }), false).hasChores).toBe(true);
   });
+
+  // These lock the data contract the event-row markup depends on. The markup
+  // itself can only be checked on the dev instance — the node test environment
+  // has no DOM.
+  it('marks an unapproved completion pending so the event row can flag it', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [],
+      completedToday: [{ choreId: 'c1', name: 'Make bed', approved: false }],
+    });
+    expect(columnFor(p, true).events[0].chore.pending).toBe(true);
+  });
+
+  it('does not mark an approved completion pending', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [],
+      completedToday: [{ choreId: 'c1', name: 'Make bed', approved: true }],
+    });
+    expect(columnFor(p, true).events[0].chore.pending).toBe(false);
+  });
 });
