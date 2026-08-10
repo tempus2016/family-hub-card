@@ -67,12 +67,19 @@ export function columnFor(person, inlineChores = false) {
 
   const remaining = inlineChores ? chores.filter((c) => !matched.has(c)) : chores;
 
+  // With chores inline, the block below is only ever the leftovers, so an empty
+  // one is dropped entirely. Keeping it would print "Chores · all done" over a
+  // person who has done nothing — their chores merely moved onto their events.
+  const hasChores = inlineChores
+    ? remaining.length > 0
+    : Boolean(person.todo) || remaining.length > 0;
+
   return {
     person,
     events: pairs,
     chores: remaining,
     outstanding: remaining.filter((c) => !c.done).length,
-    hasChores: Boolean(person.todo) || remaining.length > 0,
+    hasChores,
   };
 }
 

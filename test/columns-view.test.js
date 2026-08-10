@@ -159,11 +159,28 @@ describe('columnFor with inline chores', () => {
     expect(col.chores.map((c) => c.id)).toEqual(['done']);
   });
 
-  it('still reports hasChores when every chore moved to an event', () => {
+  // Otherwise the column prints "Chores · all done" over a person who has done
+  // nothing at all — their chores have merely moved onto their event rows.
+  it('drops the chores block when every chore moved to an event', () => {
     const p = person({
       events: [evt('Make bed')],
       chores: [{ id: '1', summary: 'Make bed', status: 'needs_action' }],
     });
+    expect(columnFor(p, true).hasChores).toBe(false);
+  });
+
+  it('keeps the chores block when a leftover chore remains', () => {
+    const p = person({
+      events: [evt('Make bed')],
+      chores: [
+        { id: '1', summary: 'Make bed', status: 'needs_action' },
+        { id: '2', summary: 'Tidy bedroom', status: 'needs_action' },
+      ],
+    });
     expect(columnFor(p, true).hasChores).toBe(true);
+  });
+
+  it('still shows an empty chores block for a person with a list when inline is off', () => {
+    expect(columnFor(person({ todo: 'todo.ana', chores: [] }), false).hasChores).toBe(true);
   });
 });
