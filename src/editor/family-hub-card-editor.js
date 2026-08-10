@@ -245,6 +245,11 @@ export class FamilyHubCardEditor extends LitElement {
           <input type="checkbox" .checked=${Boolean(c.inline_chores)}
             @change=${(e) => this._setCard('inline_chores', e.target.checked)} />
         </label>
+        <label>Calendar / Tasks tabs
+          <input type="checkbox" .checked=${Boolean(c.tabs)}
+            ?disabled=${Boolean(c.inline_chores)}
+            @change=${(e) => this._setCard('tabs', e.target.checked)} />
+        </label>
       </div>
 
       <div class="group row">
