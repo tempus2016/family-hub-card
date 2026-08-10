@@ -117,6 +117,7 @@ export class FamilyHubAgenda extends LitElement {
       .box.filled { background: var(--pc); }
       .box.filled::after { content: '\\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--fh-bg); font-weight: 800; }
       .tap.inline { display: inline-flex; vertical-align: middle; margin-right: 8px; }
+      .inline-waiting { margin-right: 8px; vertical-align: middle; }
       .ring { animation: fh-ring var(--fh-window, 3s) linear forwards; }
       @keyframes fh-ring { from { opacity: 1; } to { opacity: 0.35; } }
       .waiting { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--warning-color, #FFB84A); font-weight: 600; flex-shrink: 0; }
@@ -330,7 +331,12 @@ export class FamilyHubAgenda extends LitElement {
    */
   _eventBox(p, c) {
     if (c.kind === 'today' || c.ref.status === 'completed') {
-      return html`<span class="tap inline"><span class="box filled"></span></span>`;
+      // A TaskMate completion carries `approved`; a plain to-do item does not,
+      // so only the former can ever be awaiting approval.
+      const waiting = c.kind === 'today' && !c.ref.approved;
+      return html`<span class="tap inline"><span class="box filled"></span></span>${
+        waiting ? html`<span class="waiting inline-waiting">waiting</span>` : nothing
+      }`;
     }
     const key = `${p.id}:${c.ref.id}`;
     const pending = this._pending.has(key);
