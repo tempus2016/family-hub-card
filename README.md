@@ -37,6 +37,21 @@ on the wall and in your pocket:
 
 <img src="images/agenda-phone.png" alt="Family Hub Card at phone width" width="360">
 
+### Week
+
+`view: week` lays the same data out as a seven-day grid, so you can see what is
+coming before it arrives. Below 900px it falls back to agenda rather than
+scrolling sideways.
+
+![Family Hub Card in week view](images/week-tablet.png)
+
+### Columns
+
+`view: columns` gives each person their own column — their day above, their
+outstanding chores below.
+
+![Family Hub Card in columns view](images/columns-tablet.png)
+
 📖 **[Full documentation is in the wiki](https://github.com/tempus2016/family-hub-card/wiki)** —
 configuration reference, wall-tablet setup, troubleshooting and FAQ.
 
@@ -71,7 +86,7 @@ people:
 | Option | Default | Notes |
 |---|---|---|
 | `theme` | `auto` | `auto` follows Home Assistant's dark mode. `dark` or `light` pins it — useful for a wall tablet |
-| `view` | `agenda` | `columns` and `week` are accepted but render agenda for now |
+| `view` | `agenda` | `agenda`, `week` or `columns`. `week` falls back to agenda below 900px |
 | `refresh_interval` | `300` | Seconds; minimum 60. One HTTP call per calendar per refresh |
 | `chore_filter` | `today` | `today` = overdue, due today and undated. `all` = everything |
 | `confirm_window` | `3` | Seconds to undo a tick before it is sent. `0` completes immediately |
