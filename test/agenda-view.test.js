@@ -217,3 +217,40 @@ describe('buildTimeline with links', () => {
     expect(buildTimeline([p])[0].chore).toBe(null);
   });
 });
+
+describe('agenda person summary', () => {
+  const view = () => new FamilyHubAgenda();
+
+  const p = {
+    id: 'ana', name: 'Ana', todo: 'todo.ana',
+    chores: [
+      { id: '1', summary: 'Make bed', status: 'needs_action' },
+      { id: '2', summary: 'Get dressed', status: 'needs_action' },
+    ],
+    completedToday: [{ choreId: 'c1', name: 'Brush teeth', approved: true }],
+  };
+
+  it('names the next chore when chores are not inline', () => {
+    const v = view();
+    v.inlineChores = false;
+    expect(v._summary(p, p.chores)).toBe('Next: Make bed');
+  });
+
+  it('shows a progress count when chores are inline', () => {
+    const v = view();
+    v.inlineChores = true;
+    expect(v._summary(p, p.chores)).toBe('1/3 done');
+  });
+
+  it('still reports a missing list when chores are inline', () => {
+    const v = view();
+    v.inlineChores = true;
+    expect(v._summary({ ...p, todo: null }, [])).toBe('No chore list');
+  });
+
+  it('reports all done when nothing is outstanding and chores are not inline', () => {
+    const v = view();
+    v.inlineChores = false;
+    expect(v._summary(p, [])).toBe('All done');
+  });
+});

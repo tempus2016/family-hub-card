@@ -1,6 +1,7 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { sharedStyles } from '../styles/shared.js';
 import { linkChores } from '../data/link-chores.js';
+import { choreProgress } from '../data/chore-progress.js';
 
 /**
  * One person's chores as a single list the matcher can work on.
@@ -300,9 +301,20 @@ export class FamilyHubAgenda extends LitElement {
     `;
   }
 
-  /** The mockup's "Next: X" line, degrading sensibly when there's nothing due. */
+  /**
+   * The mockup's "Next: X" line, degrading sensibly when there's nothing due.
+   *
+   * With chores inline the timeline already lists them in time order, so naming
+   * the next one just repeats what is on screen. A count adds information
+   * instead. Counting only the unmatched chores is deliberately avoided — it
+   * would read "All done" over someone who has done nothing.
+   */
   _summary(p, outstanding) {
     if (!p.todo) return 'No chore list';
+    if (this.inlineChores) {
+      const { done, total } = choreProgress(p);
+      return total ? `${done}/${total} done` : 'All done';
+    }
     if (!outstanding.length) return 'All done';
     return `Next: ${outstanding[0].summary}`;
   }
