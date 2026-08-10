@@ -1,5 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { sharedStyles } from '../styles/shared.js';
+import { linkChores } from '../data/link-chores.js';
 
 /**
  * One column per person: their day, then their chores. The Skylight layout the
@@ -29,7 +30,7 @@ export function eventTime(event, tz) {
  * A completion that only exists in TaskMate's record has no todo item behind
  * it, so it cannot be tapped — there is nothing left to update.
  */
-export function columnFor(person) {
+export function columnFor(person, inlineChores = false) {
   const chores = [];
   const seen = new Set();
 
@@ -58,11 +59,20 @@ export function columnFor(person) {
 
   chores.sort((a, b) => Number(a.done) - Number(b.done));
 
+  // The sort is stable, so `chores` is already in the priority the matcher
+  // needs: outstanding first, then completed, then TaskMate-only completions.
+  const { pairs, matched } = inlineChores
+    ? linkChores(person.events, chores)
+    : { pairs: (person.events || []).map((event) => ({ event, chore: null })), matched: new Set() };
+
+  const remaining = inlineChores ? chores.filter((c) => !matched.has(c)) : chores;
+
   return {
     person,
-    chores,
-    outstanding: chores.filter((c) => !c.done).length,
-    hasChores: Boolean(person.todo) || chores.length > 0,
+    events: pairs,
+    chores: remaining,
+    outstanding: remaining.filter((c) => !c.done).length,
+    hasChores: Boolean(person.todo) || remaining.length > 0,
   };
 }
 
@@ -72,6 +82,7 @@ export class FamilyHubColumns extends LitElement {
     tz: { attribute: false },
     readOnly: { attribute: false },
     confirmWindow: { attribute: false },
+    inlineChores: { attribute: false },
     _pending: { state: true },
   };
 
@@ -99,6 +110,7 @@ export class FamilyHubColumns extends LitElement {
       .box { width: 19px; height: 19px; border-radius: 5px; background: var(--fh-chip); flex-shrink: 0; position: relative; }
       .box.done { background: var(--pc); }
       .box.done::after { content: '\\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--fh-bg); font-weight: 800; }
+      .tap.inline { display: inline-flex; vertical-align: middle; margin-right: 8px; }
       .ring { animation: fh-ring var(--fh-window, 3s) linear forwards; }
       @keyframes fh-ring { from { opacity: 1; } to { opacity: 0.35; } }
       .waiting { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--warning-color, #FFB84A); font-weight: 600; flex-shrink: 0; }
@@ -178,7 +190,7 @@ export class FamilyHubColumns extends LitElement {
     const tz = this.tz || 'UTC';
     return html`
       <div class="cols" style="--cols:${Math.min(this._cols, this.model.people.length || 1)}">
-        ${this.model.people.map((p) => this._column(columnFor(p), tz))}
+        ${this.model.people.map((p) => this._column(columnFor(p, this.inlineChores), tz))}
       </div>
     `;
   }
@@ -199,11 +211,13 @@ export class FamilyHubColumns extends LitElement {
           ? html`<div class="notice">Can't read ${p.failures.join(', ')}</div>`
           : nothing}
 
-        ${p.events.length
-          ? p.events.map(
-              (e) => html`<div class="ev">
-                <div class="ev-t">${eventTime(e, tz)}</div>
-                <div class="ev-n">${e.summary}</div>
+        ${col.events.length
+          ? col.events.map(
+              ({ event, chore }) => html`<div class="ev">
+                <div class="ev-t">${eventTime(event, tz)}</div>
+                <div class="ev-n">
+                  ${chore ? this._eventBox(p, chore) : nothing}${event.summary}
+                </div>
               </div>`,
             )
           : html`<div class="none">Nothing on</div>`}
@@ -217,6 +231,35 @@ export class FamilyHubColumns extends LitElement {
             `
           : nothing}
       </div>
+    `;
+  }
+
+  /**
+   * The tick box shown on a calendar event that carries a chore. Deliberately
+   * reuses `_tap`, so the undo window, the pending ring and the read-only rule
+   * behave exactly as they do in the chores list below.
+   */
+  _eventBox(p, c) {
+    const key = `${p.id}:${c.id}`;
+    const pending = this._pending.has(key);
+    const done = c.done || pending;
+
+    if (!c.tappable) {
+      return html`<span class="tap inline"><span class="box done"></span></span>`;
+    }
+
+    return html`
+      <button
+        class="tap inline"
+        role="checkbox"
+        aria-checked=${done ? 'true' : 'false'}
+        aria-label=${`Complete ${c.summary} for ${p.name}`}
+        @click=${() => this._tap(p.id, c.id)}
+        ?disabled=${this.readOnly}
+      >
+        <span class="box ${done ? 'done' : ''} ${pending ? 'ring' : ''}"
+          style="--fh-window:${this.confirmWindow}s"></span>
+      </button>
     `;
   }
 
