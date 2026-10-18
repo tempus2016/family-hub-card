@@ -31,3 +31,9 @@ describe('formatDate', () => {
       .toMatch(/segunda/);
   });
 });
+
+describe('formatTime in 12-hour mode', () => {
+  it('drops the leading zero so a wall clock reads 2:30 PM, not 02:30 PM', () => {
+    expect(formatTime(at, { language: 'en', time_format: '12' }, TZ)).toMatch(/^2:30/);
+  });
+});

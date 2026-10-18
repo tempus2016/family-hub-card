@@ -218,11 +218,11 @@ describe('model identity', () => {
 });
 
 describe('HubData.windowDays', () => {
-  it('defaults to one day for agenda and seven for week', () => {
-    const { hub: agenda } = makeHub(cfg, makeHass());
-    expect(agenda.windowDays).toBe(1);
-    const { hub: week } = makeHub({ ...cfg, view: 'week' }, makeHass());
-    expect(week.windowDays).toBe(7);
+  it('defaults to seven days, and one for the day view', () => {
+    const { hub: schedule } = makeHub(cfg, makeHass());
+    expect(schedule.windowDays).toBe(7);
+    const { hub: day } = makeHub({ ...cfg, calendar_view: 'day' }, makeHass());
+    expect(day.windowDays).toBe(1);
   });
 
   it('refetches at the new width when the card collapses week to agenda', async () => {
@@ -557,5 +557,17 @@ describe('window changes during a fetch', () => {
     };
     expect(span(paths[0])).toBe(7 * 24);
     expect(span(paths[1])).toBe(24);
+  });
+});
+
+describe('chore calendar events', () => {
+  it('flags events from a chore calendar', async () => {
+    const hass = makeHass({
+      callApi: async () => [{ summary: 'Make bed', start: { dateTime: '2026-08-03T06:00:00Z' }, end: { dateTime: '2026-08-03T07:00:00Z' } }],
+    });
+    const { hub } = makeHub({ people: [{ name: 'Ana', calendars: ['calendar.taskmate_ana', 'calendar.ana'] }] }, hass);
+    await hub.refresh();
+    const byCal = Object.fromEntries(hub.model.people[0].events.map((e) => [e.calendar, e.isChore]));
+    expect(byCal).toEqual({ 'calendar.taskmate_ana': true, 'calendar.ana': false });
   });
 });

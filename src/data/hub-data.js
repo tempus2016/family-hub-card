@@ -2,6 +2,7 @@ import { fetchEvents } from './calendar-source.js';
 import { fetchChores, completeChore } from './todo-source.js';
 import { readPoints, readCompletions, completionsForPerson } from './taskmate-source.js';
 import { buildTasks, progressOf } from './tasks.js';
+import { choreMeta } from './chore-meta.js';
 import { msUntilNextLocalMidnight } from './time.js';
 import { logFailure } from './log.js';
 
@@ -37,7 +38,7 @@ export class HubData {
    * timeline would read as duplicates.
    */
   get windowDays() {
-    return this._windowDays ?? (this.config.view === 'week' ? 7 : 1);
+    return this._windowDays ?? (this.config.calendarView === 'day' ? 1 : 7);
   }
 
   /** Days to shift the fetch window by. Negative looks backwards. */
@@ -201,6 +202,8 @@ export class HubData {
    */
   _rebuild(hass) {
     const completions = readCompletions(hass, this.config.taskmateChores);
+    const meta = choreMeta(hass, this.config.taskmateChores);
+    const choreCals = new Set(this.config.choreCalendars || []);
     const now = this.getNow();
 
     const people = this.config.people.map((p) => {
@@ -213,7 +216,7 @@ export class HubData {
         // uploaded image; the TaskMate icon only when there is no photo.
         picture: p.picture || personEntity?.attributes?.entity_picture || points?.avatarImage || null,
         icon: points?.avatarIcon || null,
-        events: this._events.filter((e) => e.personId === p.id),
+        events: this._events.filter((e) => e.personId === p.id).map((e) => ({ ...e, isChore: choreCals.has(e.calendar) })),
         chores: this._chores[p.id] || [],
         completedToday: completionsForPerson(completions, withChild),
         points,
@@ -221,13 +224,20 @@ export class HubData {
       };
       // Merged once here so every view reads the same list.
       person.tasks = buildTasks(person, {
-        now, tz: this._tz, maxCompleted: this.config.maxCompleted,
+        now, tz: this._tz, maxCompleted: this.config.maxCompleted, meta,
       });
       person.progress = progressOf(person);
       return person;
     });
 
-    this.model = { ...this.model, people };
+    // The meals calendar rides along as a hidden person so it shares the
+    // fetch, the failure handling and the window; it surfaces as model.meals.
+    const meals = people.find((p) => p.id === 'meals');
+    this.model = {
+      ...this.model,
+      people: people.filter((p) => p.id !== 'meals'),
+      meals: meals ? meals.events : [],
+    };
   }
 
   start() {

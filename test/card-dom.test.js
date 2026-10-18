@@ -63,14 +63,13 @@ describe('locale', () => {
     const el = await mount(base, hass);
     const text = el.shadowRoot.textContent;
     expect(text).toMatch(/segunda|terça|quarta|quinta|sexta|sábado|domingo/i);
-    const agenda = el.shadowRoot.querySelector('family-hub-agenda');
-    expect(agenda.shadowRoot.textContent).toContain('Hoje');
+    expect(text).toContain('Calendário');
   });
 
   it('shows a 12-hour clock when the profile asks for one', async () => {
     const { hass } = makeHass({ locale: { language: 'en', time_format: '12' } });
     const el = await mount(base, hass);
-    expect(el.shadowRoot.querySelector('.clock').textContent.trim().toLowerCase()).toMatch(/am|pm/);
+    expect(el.shadowRoot.querySelector('.title .time').textContent.trim().toLowerCase()).toMatch(/am|pm/);
   });
 });
 
@@ -81,7 +80,7 @@ describe('narrow header', () => {
     el._narrow = true;
     el.requestUpdate();
     await el.updateComplete;
-    const text = el.shadowRoot.querySelector('.date').textContent.trim();
+    const text = el.shadowRoot.querySelector('.title .name').textContent.trim();
     expect(text.length).toBeLessThan(14);
     expect(text).not.toMatch(/day,/);
   });

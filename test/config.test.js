@@ -129,19 +129,8 @@ describe('normaliseConfig', () => {
     expect(normaliseConfig({ ...minimal, inline_chores: 'yes' }).inlineChores).toBe(true);
   });
 
-  it('defaults tabs to false', () => {
-    expect(normaliseConfig(minimal).tabs).toBe(false);
-  });
 
-  it('reads tabs when set', () => {
-    expect(normaliseConfig({ ...minimal, tabs: true }).tabs).toBe(true);
-  });
 
-  it('lets tabs win when both are asked for', () => {
-    const cfg = normaliseConfig({ ...minimal, tabs: true, inline_chores: true });
-    expect(cfg.tabs).toBe(true);
-    expect(cfg.inlineChores).toBe(false);
-  });
 });
 
 describe('max_completed', () => {
@@ -200,11 +189,6 @@ describe('inline chores default', () => {
     expect(normaliseConfig({ ...base, inline_chores: false }).inlineChores).toBe(false);
   });
 
-  it('yields to tabs when tabs are on', () => {
-    const cfg = normaliseConfig({ ...base, tabs: true });
-    expect(cfg.tabs).toBe(true);
-    expect(cfg.inlineChores).toBe(false);
-  });
 });
 
 describe('week_start', () => {
@@ -232,5 +216,57 @@ describe('person picture and entity', () => {
 
   it('rejects a person entity outside the person domain', () => {
     expect(() => normaliseConfig({ people: [{ name: 'Ana', todo: 'todo.ana', person: 'sensor.ana' }] })).toThrow(/person/);
+  });
+});
+
+describe('screens and calendar views', () => {
+  const base = { people: [{ name: 'Ana', todo: 'todo.ana' }] };
+
+  it('defaults to the calendar screen in schedule view with no family name', () => {
+    const cfg = normaliseConfig(base);
+    expect(cfg).toMatchObject({ home: 'calendar', calendarView: 'schedule', familyName: null, hideCompleted: false });
+  });
+
+  it('accepts the new keys', () => {
+    const cfg = normaliseConfig({ ...base, family_name: 'MacKinnon Family', home: 'tasks', calendar_view: 'month', taskmate_rewards: 'sensor.taskmate_rewards', meals_calendar: 'calendar.meals', hide_completed: true });
+    expect(cfg).toMatchObject({ familyName: 'MacKinnon Family', home: 'tasks', calendarView: 'month', taskmateRewards: 'sensor.taskmate_rewards', mealsCalendar: 'calendar.meals', hideCompleted: true });
+  });
+
+  it('maps the legacy view key onto a calendar view', () => {
+    expect(normaliseConfig({ ...base, view: 'agenda' }).calendarView).toBe('day');
+    expect(normaliseConfig({ ...base, view: 'week' }).calendarView).toBe('week');
+    expect(normaliseConfig({ ...base, view: 'columns' }).calendarView).toBe('schedule');
+  });
+
+  it('lets calendar_view win over a legacy view', () => {
+    expect(normaliseConfig({ ...base, view: 'agenda', calendar_view: 'month' }).calendarView).toBe('month');
+  });
+
+  it('rejects an unknown home or calendar_view', () => {
+    expect(() => normaliseConfig({ ...base, home: 'photos' })).toThrow(/home/);
+    expect(() => normaliseConfig({ ...base, calendar_view: 'year' })).toThrow(/calendar_view/);
+  });
+
+  it('only offers the rewards screen when a rewards sensor is set', () => {
+    expect(normaliseConfig(base).screens).toEqual(['calendar', 'tasks', 'settings']);
+    expect(normaliseConfig({ ...base, taskmate_rewards: 'sensor.taskmate_rewards' }).screens).toEqual(['calendar', 'tasks', 'rewards', 'settings']);
+  });
+
+  it('falls back to calendar when home names a screen that is not offered', () => {
+    expect(normaliseConfig({ ...base, home: 'rewards' }).home).toBe('calendar');
+  });
+});
+
+describe('chore calendars', () => {
+  const base = { people: [{ name: 'Ana', calendars: ['calendar.taskmate_ana', 'calendar.ana_school'], todo: 'todo.ana' }] };
+
+  it('treats TaskMate calendars as chore calendars automatically', () => {
+    const cfg = normaliseConfig(base);
+    expect(cfg.choreCalendars).toEqual(['calendar.taskmate_ana']);
+  });
+
+  it('accepts more through chore_calendars', () => {
+    const cfg = normaliseConfig({ ...base, chore_calendars: ['calendar.ana_school'] });
+    expect(cfg.choreCalendars.sort()).toEqual(['calendar.ana_school', 'calendar.taskmate_ana']);
   });
 });

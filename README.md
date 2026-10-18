@@ -20,47 +20,59 @@
 
 ---
 
-A Home Assistant Lovelace card for a wall-mounted family tablet: today's
-schedule for everyone in one timeline, plus who owes which chore — tap to tick
-it off.
+A Home Assistant Lovelace card that turns a wall-mounted tablet into a
+Skylight-style family hub: one card, a rail of screens, a serif-and-sans look
+with a pastel tint per person, and everything tappable at child height.
 
 Works with any `calendar.*` and `todo.*` entities. No cloud, no account.
+[TaskMate](https://github.com/tempus2016/taskmate) is supported as an enhanced
+backend for points, approvals, icons and rewards.
 
-![Family Hub Card on a wall tablet](images/agenda-tablet.png)
+![Family Hub Card schedule view on a wall tablet](images/schedule-tablet.png)
 
-Everyone's day in one timeline with a live "now" line, and each person's
-outstanding chores beside it. Chores that have a matching calendar event carry
-their tick box on the event itself. Tapping a chore ticks it off, with a few
-seconds to undo before anything is sent. Tap an event to see its full time,
-location and description.
+### Calendar
 
-A family calendar everyone shares goes in `shared_calendars:` and shows once,
-in a neutral colour, rather than once per person.
+Four views behind one picker. **Schedule** is seven columns of stacked event
+cards, each in its owner's tint with a small avatar, and a tick box on any
+event that is also a chore. **Week** is a timed grid with an hour gutter and
+cards sized by duration. **Month** is six weeks of chips; tap a day to open it.
+**Day** is one day's cards with a now-line. A shared family calendar shows once
+in a neutral colour, and a meals calendar shows as a pill at the top of each
+day. Tap an event for its full time, location and description.
 
-On a phone the chore panel drops below the timeline, so the same dashboard works
-on the wall and in your pocket:
+![Week view](images/week-tablet.png)
 
-<img src="images/agenda-phone.png" alt="Family Hub Card at phone width" width="360">
+![Month view in dark mode](images/month-dark-tablet.png)
 
-### Week
+### Tasks
 
-`view: week` lays the same data out as a seven-day grid starting on Monday
-(`week_start: sunday` or `today` to change that), with today highlighted
-wherever it falls. Daily chores collapse into one counted chip per day so real
-events stand out. Below 900px it falls back to agenda rather than scrolling
-sideways.
+One tinted column per person: avatar, name, a progress pill and a stars pill,
+four rings for Morning, Afternoon, Evening and Chores, then hero tiles with the
+chore's icon, name, stars and a round tick. Done tiles go a stronger tint. A
+chore TaskMate would refuse without a note, photo or count gets a label instead
+of a box.
 
-![Family Hub Card in week view](images/week-tablet.png)
+![Tasks board](images/tasks-tablet.png)
 
-### Columns
+On a phone the rail becomes a bottom bar and the columns stack:
 
-`view: columns` gives each person their own column — their day above, their
-outstanding chores below.
+<img src="images/tasks-phone.png" alt="Tasks board at phone width" width="360">
 
-![Family Hub Card in columns view](images/columns-tablet.png)
+### Rewards
 
-📖 **[Full documentation is in the wiki](https://github.com/tempus2016/family-hub-card/wiki)** —
-configuration reference, wall-tablet setup, troubleshooting and FAQ.
+TaskMate's catalogue for each child, with their balance against every cost.
+Redeem asks for a second tap, then files a claim for a parent to approve.
+
+### Settings
+
+Theme (follows Home Assistant on `auto`), home screen, calendar view and
+hide-completed, stored per device so the wall tablet can stay dark and open on
+Tasks while your phone does something else.
+
+The card follows the Home Assistant profile for language (English and
+Portuguese) and 12- or 24-hour time. Avatars come from the person's photo,
+a picture URL, or TaskMate's avatar. Fonts are Lora and Outfit (SIL OFL),
+embedded in the bundle.
 
 ## Install
 
@@ -74,7 +86,9 @@ Full instructions, including manual install: [Installation](https://github.com/t
 
 ```yaml
 type: custom:family-hub-card
-view: agenda
+family_name: MacKinnon Family
+home: calendar
+calendar_view: schedule
 theme: auto
 refresh_interval: 300
 chore_filter: today
@@ -84,6 +98,9 @@ header:
   weather: weather.home
   subtitle: sensor.bin_collection
 shared_calendars: [calendar.family]
+meals_calendar: calendar.meals
+taskmate_chores: sensor.taskmate_chores
+taskmate_rewards: sensor.taskmate_rewards
 people:
   - name: Ana
     color: "#4A9EFF"
@@ -95,23 +112,26 @@ people:
 | Option | Default | Notes |
 |---|---|---|
 | `theme` | `auto` | `auto` follows Home Assistant's dark mode. `dark` or `light` pins it — useful for a wall tablet |
-| `view` | `agenda` | `agenda`, `week` or `columns`. `week` falls back to agenda below 900px |
+| `family_name` | — | Header title. Shows today's date when empty |
+| `home` | `calendar` | Screen the card opens on and returns to: `calendar`, `tasks`, `rewards` |
+| `calendar_view` | `schedule` | `schedule`, `week`, `month` or `day`. (Legacy `view:` still works: agenda→day, columns→schedule) |
+| `return_to_today` | `120` | Seconds idle before the card snaps back to the home screen and today. `0` disables |
 | `refresh_interval` | `300` | Seconds; minimum 60. One HTTP call per calendar per refresh |
 | `chore_filter` | `today` | `today` = overdue, due today and undated. `all` = everything |
-| `inline_chores` | `true` | Tick a chore from its matching calendar event, and drop it from the chores list. Agenda and columns only. Set `false` for a separate chore list |
-| `tabs` | `false` | Show Calendar and Tasks tabs, moving chores onto their own Skylight-style board grouped by time of day. Turns `inline_chores` off |
+| `inline_chores` | `true` | Put a tick box on a calendar event that matches a chore. `false` keeps the calendar plain |
+| `hide_completed` | `false` | Hide done tiles on the Tasks screen by default |
 | `confirm_window` | `3` | Seconds to undo a tick before it is sent. `0` completes immediately |
 | `week_start` | `monday` | `monday`, `sunday`, or `today` for a rolling seven days |
 | `max_completed` | `3` | How many completed items from a stock to-do list stay visible, struck through. `0` hides them |
 | `shared_calendars` | — | Calendars for the whole family. Shown once as a neutral "Family" row; `shared_name` and `shared_color` rename and recolour it |
-| `taskmate_chores` | — | TaskMate's chores sensor, for completed-today and approval state |
+| `taskmate_chores` | — | TaskMate's chores sensor: completed-today rows, approval state, chore icons, stars and which chores need a note, photo or count |
+| `taskmate_rewards` | — | TaskMate's rewards sensor. Adds the Rewards screen |
+| `meals_calendar` | — | A calendar whose events show as a meal pill at the top of each day |
 | `people[].points` | — | A points sensor, shown as a balance beside the person, with their streak when TaskMate reports one |
 | `people[].person` | — | A `person.*` entity whose photo becomes the avatar |
 | `people[].picture` | — | A picture URL for the avatar, overriding everything else |
 
-The card follows the Home Assistant profile for language (English and
-Portuguese so far) and for 12- or 24-hour time. Overdue chores are marked in
-red, and a person whose chores are all done gets a tick on their avatar.
+Overdue chores are marked in red.
 
 Each person needs `calendars`, `todo`, or both. Every option, including the
 per-person keys and the validation rules:
@@ -140,6 +160,7 @@ npm install
 npm test          # vitest
 npm run lint      # eslint
 npm run build     # rollup → dist/family-hub-card.js
+python3 scripts/build-fonts.py   # only after changing assets/fonts/
 ```
 
 `dist/family-hub-card.js` is committed because HACS serves it straight from the

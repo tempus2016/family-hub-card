@@ -1,14 +1,16 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { tokens, sharedStyles } from './styles/shared.js';
+import { tokens, shared, personStyle, ensureFonts } from './styles/theme.js';
 import { normaliseConfig } from './data/config.js';
 import { HubData } from './data/hub-data.js';
 import { msUntilNextMinute } from './data/time.js';
+import { weekStartOffset, monthStartOffset, monthGrid } from './data/calendar-grid.js';
+import { effectiveSettings, saveSettings } from './data/settings.js';
 import { t, pickLanguage } from './i18n.js';
 import { formatTime, formatDate } from './format.js';
-import { weekStartOffset } from './views/week-view.js';
-import './views/agenda-view.js';
-import './views/columns-view.js';
-import './views/tasks-view.js';
+import './screens/calendar-screen.js';
+import './screens/tasks-screen.js';
+import './screens/rewards-screen.js';
+import './screens/settings-screen.js';
 import './add/add-dialog.js';
 import { availableTypes } from './add/add-controller.js';
 // Registers <family-hub-card-editor>, which getConfigElement() instantiates by
@@ -16,26 +18,23 @@ import { availableTypes } from './add/add-controller.js';
 import './editor/family-hub-card-editor.js';
 
 const ENTITY_RE = /^[a-z_]+\.[a-z0-9_]+$/;
-const IMPLEMENTED_VIEWS = ['agenda', 'week', 'columns'];
 const DAY_MS = 24 * 3600 * 1000;
 
 /** Home Assistant weather conditions → Material Design icons. */
 export const WEATHER_ICONS = {
-  'clear-night': 'mdi:weather-night',
-  cloudy: 'mdi:weather-cloudy',
-  exceptional: 'mdi:alert-circle-outline',
-  fog: 'mdi:weather-fog',
-  hail: 'mdi:weather-hail',
-  lightning: 'mdi:weather-lightning',
-  'lightning-rainy': 'mdi:weather-lightning-rainy',
-  partlycloudy: 'mdi:weather-partly-cloudy',
-  pouring: 'mdi:weather-pouring',
-  rainy: 'mdi:weather-rainy',
-  snowy: 'mdi:weather-snowy',
-  'snowy-rainy': 'mdi:weather-snowy-rainy',
-  sunny: 'mdi:weather-sunny',
-  windy: 'mdi:weather-windy',
+  'clear-night': 'mdi:weather-night', cloudy: 'mdi:weather-cloudy', exceptional: 'mdi:alert-circle-outline',
+  fog: 'mdi:weather-fog', hail: 'mdi:weather-hail', lightning: 'mdi:weather-lightning',
+  'lightning-rainy': 'mdi:weather-lightning-rainy', partlycloudy: 'mdi:weather-partly-cloudy',
+  pouring: 'mdi:weather-pouring', rainy: 'mdi:weather-rainy', snowy: 'mdi:weather-snowy',
+  'snowy-rainy': 'mdi:weather-snowy-rainy', sunny: 'mdi:weather-sunny', windy: 'mdi:weather-windy',
   'windy-variant': 'mdi:weather-windy-variant',
+};
+
+const RAIL_ICONS = {
+  calendar: 'mdi:calendar-blank-outline',
+  tasks: 'mdi:check',
+  rewards: 'mdi:star-outline',
+  settings: 'mdi:cog-outline',
 };
 
 /**
@@ -55,9 +54,7 @@ export function resolveScheme(hass, configTheme) {
 
 export function resolveSubtitle(hass, subtitle) {
   if (!subtitle) return '';
-  if (ENTITY_RE.test(subtitle) && hass?.states?.[subtitle]) {
-    return hass.states[subtitle].state;
-  }
+  if (ENTITY_RE.test(subtitle) && hass?.states?.[subtitle]) return hass.states[subtitle].state;
   // A typo'd entity id renders as visible text rather than blanking silently.
   return subtitle;
 }
@@ -65,92 +62,80 @@ export function resolveSubtitle(hass, subtitle) {
 class FamilyHubCard extends LitElement {
   static properties = {
     _tick: { state: true },
+    _screen: { state: true },
+    _calView: { state: true },
     _offset: { state: true },
-    _tab: { state: true },
+    _monthShift: { state: true },
+    _hidden: { state: true },
+    _settings: { state: true },
   };
-
-  constructor() {
-    super();
-    this._tab = 'calendar';
-    this._offset = 0;
-  }
 
   static styles = [
     tokens,
-    sharedStyles,
+    shared,
     css`
-      /* Metrics ported from mockups/c.html — .wt and .wt-top. The card paints
-         its own surface rather than inheriting ha-card's, so the designed look
-         survives whatever theme the dashboard is using. */
-      .tabs { display: inline-flex; gap: 4px; margin-top: 4px; }
-      /* Same 44px rule as every other target on the card. */
-      .tab { min-height: var(--fh-touch); background: none; border: none; color: var(--fh-text-mute); font: inherit; font-size: 15px; padding: 0 16px; border-radius: 999px; cursor: pointer; }
-      .tab.on { background: var(--fh-chip); color: var(--fh-text); }
-      ha-card {
-        background: var(--fh-bg);
-        border-radius: var(--fh-radius);
-        border: none;
-        padding: 24px 26px;
-        color: var(--fh-text);
-        font-family: var(--fh-font);
-      }
-      .head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 20px;
-        margin-bottom: 20px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid var(--fh-rule);
-      }
-      /* Let the left column wrap its date within its own width instead of
-         pushing the clock off the right edge. Without min-width:0 a flex item
-         refuses to shrink below its content, so a long date overflows the card
-         on a phone. */
-      .headmain { min-width: 0; }
-      .date { font-size: 32px; font-weight: 600; letter-spacing: -0.6px; color: var(--fh-text); }
-      .sub { font-size: 15px; color: var(--fh-text-dim); margin-top: 3px; }
-      .meta { display: flex; align-items: center; gap: 18px; font-size: 19px; color: var(--fh-text-mute); flex-shrink: 0; }
-      .wx { display: inline-flex; align-items: center; gap: 6px; }
-      .wx ha-icon { --mdc-icon-size: 22px; color: var(--fh-text-mute); }
-      .clock { font-size: 44px; font-weight: 300; letter-spacing: -1.5px; color: var(--fh-text-strong); font-variant-numeric: tabular-nums; line-height: 1; }
-      /* Narrow (phone) reuses the card's <900px collapse: the wall-sized date
-         and clock don't fit a phone header, so scale them and tighten gaps. */
-      .head[data-narrow='true'] { gap: 8px 12px; margin-bottom: 16px; flex-wrap: wrap; }
-      .head[data-narrow='true'] .date { font-size: 23px; white-space: nowrap; }
-      .head[data-narrow='true'] .meta { margin-left: auto; }
-      .head[data-narrow='true'] .clock { font-size: 30px; }
-      .head[data-narrow='true'] .meta { gap: 12px; }
-      .nav { display: flex; align-items: center; gap: 6px; }
-      .navbtn { min-width: var(--fh-touch); min-height: var(--fh-touch); border-radius: 10px; border: none; background: none; color: var(--fh-text-mute); font-size: 22px; line-height: 1; cursor: pointer; }
-      .navbtn:hover { background: var(--fh-surface); color: var(--fh-text); }
-      .today { min-height: var(--fh-touch); padding: 0 14px; border-radius: 10px; border: none; background: var(--fh-surface); color: var(--fh-text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 4px; }
-      .addbtn { min-width: var(--fh-touch); min-height: var(--fh-touch); border-radius: 50%; border: none; background: var(--fh-surface); color: var(--fh-text); font-size: 26px; line-height: 1; cursor: pointer; flex-shrink: 0; }
-      .addbtn:hover { background: var(--fh-chip); }
-      .loading { padding: 24px 26px; color: var(--fh-text-dim); font-size: 16px; }
-      /* A console warning is invisible on a wall tablet, so say it on the card. */
-      .fallback {
-        font-size: 13px;
-        color: var(--warning-color, #FFB84A);
-        margin-top: 6px;
-      }
-      .fallback code {
-        font-family: var(--fh-mono);
-        background: var(--fh-chip);
-        border-radius: 5px;
-        padding: 1px 6px;
-      }
+      ha-card { background: var(--fh-page); color: var(--fh-text); border: none; border-radius: var(--fh-radius); overflow: hidden; font-family: var(--fh-sans); }
+      .app { display: grid; grid-template-columns: 68px 1fr; min-height: 480px; }
+      .app[data-narrow='true'] { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+
+      /* rail */
+      /* Sticky so Settings stays reachable while a long screen scrolls. */
+      .rail { background: var(--fh-rail); display: flex; flex-direction: column; padding: 10px 6px; gap: 4px; position: sticky; top: 0; align-self: start; max-height: 100vh; min-height: 100%; }
+      .rail .logo { height: 48px; display: grid; place-items: center; font-family: var(--fh-serif); font-size: 24px; color: var(--fh-text-2); margin-bottom: 8px; }
+      .rail .spacer { flex: 1; }
+      .rail button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 2px 8px; border-radius: 12px; color: var(--fh-text-2); font-size: 10.5px; min-height: 56px; }
+      .rail button ha-icon { --mdc-icon-size: 22px; }
+      .rail button.on { background: var(--fh-rail-on); color: var(--fh-text); box-shadow: var(--fh-shadow); }
+      .app[data-narrow='true'] .rail { order: 2; flex-direction: row; padding: 6px 8px; justify-content: space-around; position: sticky; top: auto; bottom: 0; min-height: 0; align-self: stretch; }
+      .app[data-narrow='true'] .rail .logo, .app[data-narrow='true'] .rail .spacer { display: none; }
+      .app[data-narrow='true'] .rail button { min-height: 48px; padding: 6px 2px 4px; flex: 1; }
+
+      /* main */
+      .main { display: flex; flex-direction: column; min-width: 0; }
+      .head { display: flex; align-items: center; gap: 14px; padding: 18px 24px 10px; flex-wrap: wrap; }
+      .title { font-family: var(--fh-serif); font-size: 28px; letter-spacing: -.2px; display: flex; align-items: baseline; gap: 14px; min-width: 0; flex-wrap: wrap; }
+      .title .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .title .time { font-weight: 400; }
+      .title .wx { font-family: var(--fh-sans); font-size: 18px; color: var(--fh-text-2); display: inline-flex; align-items: center; gap: 6px; }
+      .title .wx ha-icon { --mdc-icon-size: 20px; }
+      .sub { width: 100%; font-size: 14px; color: var(--fh-text-2); margin-top: -4px; }
+      .tools { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+      .app[data-narrow='true'] .head { padding: 14px 16px 6px; }
+      .app[data-narrow='true'] .title { font-size: 22px; gap: 10px; }
+      .app[data-narrow='true'] .tools { width: 100%; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+      .pill select { font: inherit; border: 0; background: transparent; color: inherit; font-weight: 500; outline: none; -webkit-appearance: none; appearance: none; padding-right: 14px; }
+      .pill.sel { position: relative; }
+      .pill.sel::after { content: '⌄'; position: absolute; right: 14px; top: 8px; pointer-events: none; }
+      .filters { display: flex; gap: 6px; }
+      .filters .av { cursor: pointer; box-shadow: 0 0 0 2px var(--fh-page); }
+
+      .screen { flex: 1; min-height: 0; padding: 6px 24px 90px; position: relative; }
+      .app[data-narrow='true'] .screen { padding: 4px 16px 90px; }
+      .stale { font-size: 12px; color: var(--fh-star); padding: 0 0 8px; }
+      .fab { position: absolute; right: 22px; bottom: 22px; width: 56px; height: 56px; border-radius: 50%; background: var(--fh-fab); color: #fff; font-size: 30px; display: grid; place-items: center; box-shadow: 0 8px 24px rgba(45,108,223,.35); }
+      .app[data-narrow='true'] .fab { bottom: 86px; }
+      .loading { padding: 24px 26px; color: var(--fh-text-2); font-size: 16px; }
     `,
   ];
 
+  constructor() {
+    super();
+    this._offset = 0;
+    this._monthShift = 0;
+    this._hidden = new Set();
+    this._settings = {};
+    this._narrow = false;
+  }
+
+  // ── lifecycle ───────────────────────────────────────────────────────────
+
   setConfig(config) {
     this._config = normaliseConfig(config);
+    ensureFonts();
+    this._loadSettings();
+    this._screen = this._settings.home;
+    this._calView = this._settings.calendarView;
     this._applyScheme();
-    if (!IMPLEMENTED_VIEWS.includes(this._config.view)) {
-      console.warn(
-        `family-hub-card: view "${this._config.view}" is not implemented yet — rendering agenda.`,
-      );
-    }
     this._hub?.stop();
     this._hub = null;
   }
@@ -159,22 +144,14 @@ class FamilyHubCard extends LitElement {
     const prev = this._hass;
     this._hass = hass;
     this._applyScheme();
-    if (this._hub) {
-      // A ticked chore, an added event or a new TaskMate completion all arrive
-      // as entity updates. Without this the card would sit stale until the
-      // next poll — up to refresh_interval on a wall display.
-      this._hub.hassChanged(prev);
-    }
+    if (this._hub) this._hub.hassChanged(prev);
     if (!this._hub && this._config) {
       this._hub = new HubData({
         config: this._config,
         getHass: () => this._hass,
         getNow: () => new Date(),
         onChange: () => this.requestUpdate(),
-        schedule: (fn, ms) => {
-          const id = setInterval(fn, ms);
-          return () => clearInterval(id);
-        },
+        schedule: (fn, ms) => { const id = setInterval(fn, ms); return () => clearInterval(id); },
       });
       this._syncWindow();
       this._hub.start();
@@ -183,17 +160,16 @@ class FamilyHubCard extends LitElement {
     this.requestUpdate();
   }
 
-  get hass() {
-    return this._hass;
+  get hass() { return this._hass; }
+  get _tz() { return this._hass?.config?.time_zone || 'UTC'; }
+  get _storage() { try { return window.localStorage; } catch { return null; } }
+
+  _loadSettings() {
+    this._settings = effectiveSettings(this._storage, this._config);
   }
 
-  get _tz() {
-    return this._hass?.config?.time_zone || 'UTC';
-  }
-
-  /** Drives the [data-scheme] selector the light palette hangs off. */
   _applyScheme() {
-    const scheme = resolveScheme(this._hass, this._config?.theme);
+    const scheme = resolveScheme(this._hass, this._settings?.theme || this._config?.theme);
     if (this.dataset.scheme !== scheme) {
       this.dataset.scheme = scheme;
       this.requestUpdate();
@@ -203,17 +179,9 @@ class FamilyHubCard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._applyScheme();
-    // The week grid needs seven columns of room. Below that it collapses to
-    // agenda rather than scrolling sideways, so one dashboard serves both the
-    // wall tablet and a phone.
     this._ro = new ResizeObserver(([entry]) => {
-      const narrow = entry.contentRect.width < 900;
-      if (narrow !== this._narrow) {
-        this._narrow = narrow;
-        // Refetch at the new width's window before rendering the other view.
-        this._syncWindow();
-        this.requestUpdate();
-      }
+      const narrow = entry.contentRect.width < 760;
+      if (narrow !== this._narrow) { this._narrow = narrow; this.requestUpdate(); }
     });
     this._ro.observe(this);
     this._scheduleTick();
@@ -221,12 +189,8 @@ class FamilyHubCard extends LitElement {
     window.addEventListener('online', this._onOnline);
     // disconnectedCallback stops the hub's timers. A card inside a conditional
     // card, a popup or a dragged section is re-attached without setConfig, so
-    // the timers have to come back here or the card only moves on entity
-    // changes from then on.
-    if (this._hub) {
-      this._hub.start();
-      this._hub.refresh();
-    }
+    // the timers have to come back here.
+    if (this._hub) { this._hub.start(); this._hub.refresh(); }
   }
 
   disconnectedCallback() {
@@ -243,122 +207,137 @@ class FamilyHubCard extends LitElement {
   _scheduleTick() {
     this._tickTimer = setTimeout(() => {
       this._tick = Date.now();
-      // The week's start moves at midnight; the setter is a no-op otherwise.
+      // The week's start moves at midnight; the setters are no-ops otherwise.
       this._syncWindow();
       this._scheduleTick();
     }, msUntilNextMinute(new Date()));
   }
 
-  getCardSize() {
-    return 12;
-  }
+  getCardSize() { return 12; }
+  getGridOptions() { return { columns: 'full', rows: 'auto', min_columns: 6, min_rows: 4 }; }
+  getLayoutOptions() { return { grid_columns: 'full', grid_rows: 'auto', grid_min_columns: 6 }; }
+  static getConfigElement() { return document.createElement('family-hub-card-editor'); }
+  static getStubConfig() { return { people: [{ name: 'Ana', todo: 'todo.ana' }] }; }
 
-  /** Sections dashboards: take the full width, size rows to content. */
-  getGridOptions() {
-    return { columns: 'full', rows: 'auto', min_columns: 6, min_rows: 4 };
-  }
+  // ── window and paging ───────────────────────────────────────────────────
 
-  /** The pre-2024.11 name for the same hint. */
-  getLayoutOptions() {
-    return { grid_columns: 'full', grid_rows: 'auto', grid_min_columns: 6 };
-  }
-
-  static getConfigElement() {
-    return document.createElement('family-hub-card-editor');
-  }
-
-  static getStubConfig() {
-    return { view: 'agenda', people: [{ name: 'Ana', todo: 'todo.ana' }] };
-  }
-
-  /** The view actually rendered, after the narrow-screen collapse. */
-  get _effectiveView() {
-    if (this._config.view === 'week' && this._narrow) return 'agenda';
-    return this._config.view;
-  }
-
-  /** Days from today back to the start of the displayed week; zero elsewhere. */
-  get _weekBase() {
-    if (this._effectiveView !== 'week') return 0;
-    return weekStartOffset(new Date(), this._tz, this._config.weekStart);
-  }
-
-  /** Total days from today to the first day the hub should fetch. */
+  /** Days from today to the first day the hub should fetch, for the current view. */
   get _startOffset() {
-    return (this._offset || 0) + this._weekBase;
+    const now = new Date();
+    switch (this._calView) {
+      case 'day': return this._offset;
+      case 'month': return monthStartOffset(now, this._tz, this._config.weekStart, this._monthShift);
+      default: return this._offset + weekStartOffset(now, this._tz, this._config.weekStart);
+    }
   }
 
-  /** Keeps the hub's fetch window in step with the view, width and paging. */
+  get _windowDays() {
+    return this._calView === 'day' ? 1 : this._calView === 'month' ? 42 : 7;
+  }
+
   _syncWindow() {
     if (!this._hub || !this._config) return;
-    this._hub.windowDays = this._effectiveView === 'week' ? 7 : 1;
+    this._hub.windowDays = this._windowDays;
     this._hub.startOffset = this._startOffset;
   }
 
-  _headerDate(now) {
-    const locale = this._hass.locale;
-    if (this._effectiveView === 'week') {
-      const first = new Date(now.getTime() + this._startOffset * DAY_MS);
-      return t(pickLanguage(this._hass), 'week_of', {
-        date: formatDate(first, locale, this._tz, { day: 'numeric', month: 'long' }),
-      });
-    }
-    // A phone header has room for "Sun 18 Oct" beside the clock, not for
-    // "Sunday, October 18" wrapped over three lines under it.
-    return formatDate(this._viewDate(now), locale, this._tz, this._narrow
-      ? { weekday: 'short', day: 'numeric', month: 'short' }
-      : { weekday: 'long', day: 'numeric', month: 'long' });
-  }
-
-  /** Days per paging step: a week for the grid, a day for the timeline. */
-  get _pageStep() {
-    return this._effectiveView === 'week' ? 7 : 1;
-  }
-
-  /** The date the header names and the add dialog prefills. */
-  _viewDate(now) {
-    return new Date(now.getTime() + (this._offset || 0) * DAY_MS);
-  }
-
-  /** What the add dialog prefills: the paged day, or the paged week's first day. */
-  _dialogDate(now) {
-    if (this._effectiveView === 'week' && this._offset) {
-      return new Date(now.getTime() + this._startOffset * DAY_MS);
-    }
-    return this._viewDate(now);
-  }
+  get _isToday() { return this._calView === 'month' ? !this._monthShift : !this._offset; }
 
   _page(direction) {
-    this._setOffset((this._offset || 0) + direction * this._pageStep);
+    if (this._calView === 'month') this._monthShift += direction;
+    else this._offset += direction * (this._calView === 'day' ? 1 : 7);
+    this._afterInteraction();
   }
 
-  _goToday() {
-    this._setOffset(0);
-    this._tab = 'calendar';
+  _goHome() {
+    this._offset = 0;
+    this._monthShift = 0;
+    this._screen = this._settings.home;
+    this._calView = this._settings.calendarView;
+    this._hidden = new Set();
+    this._syncWindow();
+    clearTimeout(this._returnTimer);
+    this.requestUpdate();
   }
 
-  _setOffset(offset) {
-    this._offset = offset;
+  _today() {
+    this._offset = 0;
+    this._monthShift = 0;
+    this._afterInteraction();
+  }
+
+  _afterInteraction() {
     this._syncWindow();
     this._armReturn();
     this.requestUpdate();
   }
 
   /**
-   * Without this the wall tablet stays parked on whatever week someone last
-   * looked at — a display confidently showing the wrong dates to everyone who
-   * walks past, which is worse than showing nothing.
+   * Without this the wall tablet stays parked on whatever someone last looked
+   * at — a display confidently showing the wrong thing to everyone who walks
+   * past, which is worse than showing nothing.
    */
   _armReturn() {
     clearTimeout(this._returnTimer);
     const secs = this._config?.returnToToday;
-    if (!secs || !this._offset) return;
-    this._returnTimer = setTimeout(() => this._goToday(), secs * 1000);
+    const away = this._offset || this._monthShift || this._screen !== this._settings.home
+      || this._calView !== this._settings.calendarView || this._hidden.size;
+    if (!secs || !away) return;
+    this._returnTimer = setTimeout(() => this._goHome(), secs * 1000);
+  }
+
+  _setScreen(screen) {
+    this._screen = screen;
+    this._afterInteraction();
+  }
+
+  _setCalView(view) {
+    this._calView = view;
+    this._offset = 0;
+    this._monthShift = 0;
+    this._afterInteraction();
+  }
+
+  _openDay(offset) {
+    this._calView = 'day';
+    this._offset = offset;
+    this._monthShift = 0;
+    this._afterInteraction();
+  }
+
+  _toggleFilter(id) {
+    const next = new Set(this._hidden);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    this._hidden = next;
+    this._afterInteraction();
+  }
+
+  _onSettingsChange(e) {
+    const { key, value } = e.detail;
+    saveSettings(this._storage, this._config, { [key]: value });
+    this._loadSettings();
+    if (key === 'theme') this._applyScheme();
+    if (key === 'calendarView') this._calView = this._settings.calendarView;
+    this.requestUpdate();
   }
 
   _onChoreTap(e) {
     const { personId, choreId } = e.detail;
     this._hub?.complete(personId, choreId);
+  }
+
+  // ── render ──────────────────────────────────────────────────────────────
+
+  _title(now) {
+    const locale = this._hass.locale;
+    if (this._config.familyName) return this._config.familyName;
+    if (this._calView === 'month' && this._screen === 'calendar') {
+      return monthGrid(now, this._tz, this._config.weekStart, this._monthShift).label;
+    }
+    const d = new Date(now.getTime() + (this._calView === 'day' ? this._offset : 0) * DAY_MS);
+    return formatDate(d, locale, this._tz, this._narrow
+      ? { weekday: 'short', day: 'numeric', month: 'short' }
+      : { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
   _weather() {
@@ -378,116 +357,105 @@ class FamilyHubCard extends LitElement {
     if (!this._hass || !this._hub) {
       return html`<ha-card><div class="loading">${t(pickLanguage(this._hass), 'loading')}</div></ha-card>`;
     }
-
     const now = new Date();
-    const model = this._hub.model;
     const lang = pickLanguage(this._hass);
     const locale = this._hass.locale;
     const tz = this._tz;
+    const scheme = this.dataset.scheme || 'light';
     const subtitle = resolveSubtitle(this._hass, this._config.header.subtitle);
-    const isToday = !this._offset;
+    const full = this._hub.model;
+    const visiblePeople = full.people.filter((p) => !this._hidden.has(p.id));
+    const model = { ...full, people: visiblePeople };
+    const filterable = full.people.filter((p) => !p.shared && !p.hidden);
+    const screen = this._config.screens.includes(this._screen) ? this._screen : 'calendar';
 
     return html`
       <ha-card>
-        <div class="head" data-narrow=${String(this._narrow)}>
-          <div class="headmain">
-            <div class="nav">
-              <button class="navbtn" aria-label=${t(lang, 'previous')} @click=${() => this._page(-1)}>‹</button>
-              <div class="date">${this._headerDate(now)}</div>
-              <button class="navbtn" aria-label=${t(lang, 'next_page')} @click=${() => this._page(1)}>›</button>
+        <div class="app" data-narrow=${String(this._narrow)}>
+          <nav class="rail">
+            <div class="logo">${(this._config.familyName || 'F').trim()[0].toUpperCase()}</div>
+            ${this._config.screens.filter((s) => s !== 'settings').map((s) => this._railButton(s, screen, lang))}
+            <span class="spacer"></span>
+            ${this._railButton('settings', screen, lang)}
+          </nav>
+          <div class="main">
+            <header class="head">
+              <div class="title">
+                <span class="name">${this._title(now)}</span>
+                ${this._config.header.clock ? html`<span class="time">${formatTime(now, locale, tz)}</span>` : nothing}
+                ${this._weather()}
+              </div>
+              <div class="tools">
+                ${screen === 'calendar' || screen === 'tasks' ? html`<div class="filters">
+                  ${filterable.map((p) => html`<button class="av ${this._hidden.has(p.id) ? 'off' : ''}" data-person=${p.id} title=${p.name}
+                      style=${personStyle(p.color, scheme)} @click=${() => this._toggleFilter(p.id)}>${p.picture ? html`<img src=${p.picture} alt="" />` : p.initials}</button>`)}
+                </div>` : nothing}
+                ${screen === 'calendar' ? html`<label class="pill sel"><select .value=${this._calView} @change=${(e) => this._setCalView(e.target.value)}>
+                  ${['schedule', 'week', 'month', 'day'].map((v) => html`<option value=${v} ?selected=${v === this._calView}>${t(lang, v)}</option>`)}
+                </select></label>` : nothing}
+                ${screen === 'calendar' ? html`
+                  <button class="pill icon" aria-label=${t(lang, 'previous')} @click=${() => this._page(-1)}>‹</button>
+                  <button class="pill" @click=${() => this._today()}>${t(lang, 'today')}</button>
+                  <button class="pill icon" aria-label=${t(lang, 'next_page')} @click=${() => this._page(1)}>›</button>` : nothing}
+              </div>
+              ${subtitle ? html`<div class="sub">${subtitle}</div>` : nothing}
+            </header>
+            <div class="screen">
+              ${full.staleSince ? html`<div class="stale">${t(lang, 'last_updated', { time: formatTime(full.staleSince, locale, tz) })}</div>` : nothing}
+              ${this._renderScreen(screen, model, now, lang, locale, tz, scheme)}
+              ${availableTypes(this._hass, this._config).length && screen !== 'settings'
+                ? html`<button class="fab" aria-label=${t(lang, 'add')} title=${t(lang, 'add')}
+                    @click=${() => this.renderRoot.querySelector('family-hub-add-dialog')?.show()}>+</button>`
+                : nothing}
             </div>
-            ${this._config.tabs
-              ? html`<div class="tabs" role="tablist">
-                  ${['calendar', 'tasks'].map(
-                    (tab) => html`<button
-                      class="tab ${this._tab === tab ? 'on' : ''}"
-                      role="tab"
-                      aria-selected=${this._tab === tab ? 'true' : 'false'}
-                      @click=${() => { this._tab = tab; }}
-                    >${t(lang, tab)}</button>`,
-                  )}
-                </div>`
-              : nothing}
-            ${this._offset
-              ? html`<button class="today" @click=${() => this._goToday()}>${t(lang, 'today')}</button>`
-              : nothing}
-            ${subtitle ? html`<div class="sub">${subtitle}</div>` : nothing}
-            ${!IMPLEMENTED_VIEWS.includes(this._config.view)
-              ? html`<div class="fallback">${t(lang, 'view_not_built', { view: this._config.view })}</div>`
-              : nothing}
-            ${model.staleSince
-              ? html`<div class="stale">
-                  ${t(lang, 'last_updated', { time: formatTime(model.staleSince, locale, tz) })}
-                </div>`
-              : nothing}
-          </div>
-          <div class="meta">
-            ${this._weather()}
-            ${availableTypes(this._hass, this._config).length
-              ? html`<button class="addbtn" aria-label=${t(lang, 'add')} title=${t(lang, 'add')}
-                  @click=${() => this.renderRoot.querySelector('family-hub-add-dialog')?.show()}
-                >+</button>`
-              : nothing}
-            ${this._config.header.clock
-              ? html`<span class="clock">${formatTime(now, locale, tz)}</span>`
-              : nothing}
           </div>
         </div>
         <family-hub-add-dialog
-          .hass=${this._hass}
-          .config=${this._config}
-          .lang=${lang}
-          .date=${this._dialogDate(now)}
+          .hass=${this._hass} .config=${this._config} .lang=${lang}
+          .date=${new Date(now.getTime() + (this._calView === 'day' ? this._offset : 0) * DAY_MS)}
           @created=${() => this._hub?.refresh()}
         ></family-hub-add-dialog>
-        ${this._config.tabs && this._tab === 'tasks'
-          ? html`<family-hub-tasks
-              .model=${model}
-              .lang=${lang}
-              .now=${now}
-              .isToday=${isToday}
-              .tz=${tz}
-              .readOnly=${!isToday}
-              .confirmWindow=${this._config.confirmWindow}
-              @chore-tap=${(e) => this._onChoreTap(e)}
-            ></family-hub-tasks>`
-          : this._effectiveView === 'columns'
-          ? html`<family-hub-columns
-              .model=${model}
-              .lang=${lang}
-              .locale=${locale}
-              .tz=${tz}
-              .readOnly=${!isToday}
-              .confirmWindow=${this._config.confirmWindow}
-              .inlineChores=${this._config.inlineChores}
-              .hideChores=${this._config.tabs}
-              @chore-tap=${(e) => this._onChoreTap(e)}
-            ></family-hub-columns>`
-          : this._effectiveView === 'week'
-          ? html`<family-hub-week
-              .model=${model}
-              .lang=${lang}
-              .locale=${locale}
-              .now=${now}
-              .offsetDays=${this._offset || 0}
-              .startOffset=${this._startOffset}
-              .tz=${tz}
-            ></family-hub-week>`
-          : html`<family-hub-agenda
-              .model=${model}
-              .lang=${lang}
-              .locale=${locale}
-              .tz=${tz}
-              .now=${now}
-              .isToday=${isToday}
-              .readOnly=${!isToday}
-              .confirmWindow=${this._config.confirmWindow}
-              .inlineChores=${this._config.inlineChores}
-              .hideChores=${this._config.tabs}
-              @chore-tap=${(e) => this._onChoreTap(e)}
-            ></family-hub-agenda>`}
       </ha-card>
     `;
+  }
+
+  _railButton(s, current, lang) {
+    return html`<button class=${s === current ? 'on' : ''} data-screen=${s} @click=${() => this._setScreen(s)}>
+      <ha-icon icon=${RAIL_ICONS[s]}></ha-icon>${t(lang, s)}
+    </button>`;
+  }
+
+  _renderScreen(screen, model, now, lang, locale, tz, scheme) {
+    switch (screen) {
+      case 'tasks':
+        return html`<family-hub-tasks-screen
+          .model=${model} .now=${now} .tz=${tz} .lang=${lang} .scheme=${scheme}
+          .isToday=${true} .hideCompleted=${Boolean(this._settings.hideCompleted)}
+          .confirmWindow=${this._config.confirmWindow} .readOnly=${false}
+          @chore-tap=${(e) => this._onChoreTap(e)}
+        ></family-hub-tasks-screen>`;
+      case 'rewards':
+        return html`<family-hub-rewards-screen
+          .hass=${this._hass} .model=${model} .rewardsEntity=${this._config.taskmateRewards}
+          .lang=${lang} .scheme=${scheme}
+        ></family-hub-rewards-screen>`;
+      case 'settings':
+        return html`<family-hub-settings-screen
+          .settings=${this._settings} .config=${this._config} .lang=${lang}
+          @settings-change=${(e) => this._onSettingsChange(e)}
+        ></family-hub-settings-screen>`;
+      default:
+        return html`<family-hub-calendar-screen
+          .model=${model} .mode=${this._calView} .now=${now} .locale=${locale} .lang=${lang} .tz=${tz} .scheme=${scheme}
+          .startOffset=${this._startOffset} .offsetDays=${this._calView === 'month' ? this._monthShift : this._offset}
+          .monthShift=${this._monthShift} .weekStart=${this._config.weekStart}
+          .inlineChores=${this._config.inlineChores}
+          .confirmWindow=${this._config.confirmWindow} .readOnly=${!this._isToday}
+          @chore-tap=${(e) => this._onChoreTap(e)}
+          @open-day=${(e) => this._openDay(e.detail.offset)}
+          @open-screen=${(e) => this._setScreen(e.detail.screen)}
+        ></family-hub-calendar-screen>`;
+    }
   }
 }
 
@@ -500,7 +468,7 @@ if (typeof window !== 'undefined') {
   window.customCards.push({
     type: 'family-hub-card',
     name: 'Family Hub Card',
-    description: "Today's schedule per person plus their chores, tappable to complete.",
+    description: 'A Skylight-style family calendar, chores and rewards board for a wall tablet.',
     preview: true,
     documentationURL: 'https://github.com/tempus2016/family-hub-card',
   });

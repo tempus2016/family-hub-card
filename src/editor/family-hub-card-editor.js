@@ -231,10 +231,21 @@ export class FamilyHubCardEditor extends LitElement {
 
     return html`
       <div class="group row">
-        <label>View
-          <select @change=${(e) => this._setCard('view', e.target.value)}>
-            ${['agenda', 'week', 'columns'].map(
-              (v) => html`<option value=${v} ?selected=${(c.view || 'agenda') === v}>${v}</option>`,
+        <label style="flex:2 1 220px">Family name (header)
+          <input type="text" .value=${c.family_name || ''} placeholder="Shows today's date when empty"
+            @input=${(e) => this._setCard('family_name', e.target.value)} />
+        </label>
+        <label>Home screen
+          <select @change=${(e) => this._setCard('home', e.target.value === 'calendar' ? '' : e.target.value)}>
+            ${['calendar', 'tasks', 'rewards'].map(
+              (v) => html`<option value=${v} ?selected=${(c.home || 'calendar') === v}>${v}</option>`,
+            )}
+          </select>
+        </label>
+        <label>Calendar view
+          <select @change=${(e) => this._setCard('calendar_view', e.target.value === 'schedule' ? '' : e.target.value)}>
+            ${['schedule', 'week', 'month', 'day'].map(
+              (v) => html`<option value=${v} ?selected=${(c.calendar_view || 'schedule') === v}>${v}</option>`,
             )}
           </select>
         </label>
@@ -260,13 +271,12 @@ export class FamilyHubCardEditor extends LitElement {
           </select>
         </label>
         <label>Tick chores on their event
-          <input type="checkbox" .checked=${c.inline_chores !== false && !c.tabs}
-            ?disabled=${Boolean(c.tabs)}
+          <input type="checkbox" .checked=${c.inline_chores !== false}
             @change=${(e) => this._setCard('inline_chores', e.target.checked ? '' : false)} />
         </label>
-        <label>Calendar / Tasks tabs
-          <input type="checkbox" .checked=${Boolean(c.tabs)}
-            @change=${(e) => this._setCard('tabs', e.target.checked)} />
+        <label>Hide completed by default
+          <input type="checkbox" .checked=${Boolean(c.hide_completed)}
+            @change=${(e) => this._setCard('hide_completed', e.target.checked)} />
         </label>
       </div>
 
@@ -294,6 +304,10 @@ export class FamilyHubCardEditor extends LitElement {
           (v) => this._setHeader('weather', v))}
         ${this._select('TaskMate chores sensor', c.taskmate_chores, this._entities('sensor.'),
           (v) => this._setCard('taskmate_chores', v))}
+        ${this._select('TaskMate rewards sensor (adds the Rewards screen)', c.taskmate_rewards, this._entities('sensor.'),
+          (v) => this._setCard('taskmate_rewards', v))}
+        ${this._select('Meals calendar (shown as a pill on each day)', c.meals_calendar, this._entities('calendar.'),
+          (v) => this._setCard('meals_calendar', v))}
       </div>
       ${this._choresSuggestion(c)}
 

@@ -92,10 +92,14 @@ export class TickController {
  * or a TaskMate completion with no to-do item behind it — renders as a static
  * filled box rather than a button: there is nothing left to update.
  */
+const CHECK = html`<svg viewBox="0 0 24 24"><path d="M5 12.5l4 4L19 7"/></svg>`;
+
 export function renderTick(ticks, person, task, { inline = false } = {}) {
   const cls = inline ? 'tap inline' : 'tap';
+  // A chore TaskMate will refuse gets no box at all; the caller shows why.
+  if (task.blocked) return nothing;
   if (!task.tappable) {
-    return html`<span class=${cls}><span class="box done"></span></span>`;
+    return html`<span class=${cls}><span class="tick on">${CHECK}</span></span>`;
   }
   const pending = ticks.isPending(person.id, task.id);
   const done = task.done || pending;
@@ -106,11 +110,11 @@ export function renderTick(ticks, person, task, { inline = false } = {}) {
       role="checkbox"
       aria-checked=${done ? 'true' : 'false'}
       aria-label=${t(lang, 'complete_for', { chore: task.summary, name: person.name })}
-      @click=${() => ticks.tap(person.id, task.id)}
+      @click=${(e) => { e.stopPropagation(); ticks.tap(person.id, task.id); }}
       ?disabled=${ticks.host.readOnly}
     >
-      <span class="box ${done ? 'done' : ''} ${pending ? 'ring' : ''}"
-        style="--fh-window:${ticks.host.confirmWindow}s"></span>
+      <span class="tick ${done ? 'on' : ''} ${pending ? 'ring' : ''}"
+        style="--fh-window:${ticks.host.confirmWindow}s">${CHECK}</span>
     </button>
   `;
 }
@@ -119,6 +123,7 @@ export function renderTick(ticks, person, task, { inline = false } = {}) {
 export function renderBadge(lang, task, { inline = false } = {}) {
   const cls = inline ? 'badge inline-badge' : 'badge';
   if (task.pending) return html`<span class="${cls} waiting">${t(lang, 'waiting')}</span>`;
+  if (task.blocked) return html`<span class="${cls} blocked">${t(lang, `blocked_${task.blocked}`)}</span>`;
   if (task.overdue && !task.done) return html`<span class="${cls} overdue">${t(lang, 'overdue')}</span>`;
   return nothing;
 }

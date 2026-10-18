@@ -8,6 +8,10 @@ export const SHARED_COLOR = '#9AA3B8';
 export const SHARED_ID = 'family';
 
 const VIEWS = ['agenda', 'columns', 'week'];
+const CALENDAR_VIEWS = ['schedule', 'week', 'month', 'day'];
+// What the old single `view` meant, now that the calendar has its own picker.
+const LEGACY_VIEW = { agenda: 'day', week: 'week', columns: 'schedule' };
+const HOMES = ['calendar', 'tasks', 'rewards'];
 const THEMES = ['auto', 'dark', 'light'];
 const WEEK_STARTS = ['monday', 'sunday', 'today'];
 
@@ -60,6 +64,16 @@ export function normaliseConfig(raw) {
   const theme = cfg.theme || 'auto';
   if (!THEMES.includes(theme)) {
     throw new Error(`family-hub-card: unknown \`theme\` "${theme}" — expected one of ${THEMES.join(', ')}`);
+  }
+
+  const calendarView = cfg.calendar_view || (cfg.view ? LEGACY_VIEW[view] : null) || 'schedule';
+  if (!CALENDAR_VIEWS.includes(calendarView)) {
+    throw new Error(`family-hub-card: unknown \`calendar_view\` "${calendarView}" — expected one of ${CALENDAR_VIEWS.join(', ')}`);
+  }
+
+  const home = cfg.home || 'calendar';
+  if (!HOMES.includes(home)) {
+    throw new Error(`family-hub-card: unknown \`home\` "${home}" — expected one of ${HOMES.join(', ')}`);
   }
 
   const weekStart = cfg.week_start || 'monday';
@@ -119,20 +133,47 @@ export function normaliseConfig(raw) {
     });
   }
 
-  const tabs = Boolean(cfg.tabs);
+  if (cfg.meals_calendar) {
+    checkCalendars(cfg.meals_calendar, 'meals_calendar');
+    people.push({
+      id: 'meals', name: 'Meals', color: '#f28c3a', initials: 'M', calendars: [cfg.meals_calendar],
+      todo: null, points: null, picture: null, person: null, shared: true, hidden: true,
+    });
+  }
+
+
+  // Events from these calendars are chores, which live on the Tasks screen;
+  // the calendar shows them as one "n chores" pill per person per day rather
+  // than a card each. TaskMate's per-child calendars are recognised by name.
+  const extraChoreCals = checkCalendars(cfg.chore_calendars, 'chore_calendars');
+  const choreCalendars = [...new Set([
+    ...people.flatMap((p) => p.calendars).filter((id) => id.startsWith('calendar.taskmate_')),
+    ...extraChoreCals,
+  ])];
+
+  // The rail only ever shows screens that can work: Rewards needs the sensor.
+  const screens = ['calendar', 'tasks'];
+  if (cfg.taskmate_rewards) screens.push('rewards');
+  screens.push('settings');
 
   return {
     view,
+    calendarView,
+    home: screens.includes(home) ? home : 'calendar',
+    screens,
+    familyName: cfg.family_name ? String(cfg.family_name) : null,
+    choreCalendars,
+    hideCompleted: Boolean(cfg.hide_completed),
+    taskmateRewards: cfg.taskmate_rewards || null,
+    mealsCalendar: cfg.meals_calendar || null,
     theme,
     weekStart,
     refreshInterval: Math.max(60, Number(cfg.refresh_interval ?? 300)),
     returnToToday: cfg.return_to_today === 0 ? 0 : Math.max(10, Number(cfg.return_to_today ?? 120)),
     choreFilter: cfg.chore_filter === 'all' ? 'all' : 'today',
-    // Both options describe the same intent — get the chore out of the
-    // calendar's way — so setting both is not an error, it just has one
-    // answer: tabs win, because asking for tabs is the more deliberate act.
-    inlineChores: cfg.inline_chores !== false && !tabs,
-    tabs,
+    // Chores with a matching calendar event carry their tick on the event.
+    // `tabs` from earlier versions is accepted and ignored: Tasks is a screen.
+    inlineChores: cfg.inline_chores !== false,
     confirmWindow: cfg.confirm_window === 0 ? 0 : Number(cfg.confirm_window ?? 3),
     // Stock to-do lists keep completed items until cleared; this is how many
     // of them a person's card shows struck through. TaskMate never returns

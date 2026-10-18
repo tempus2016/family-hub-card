@@ -22,8 +22,9 @@ function tagFor(locale) {
 }
 
 export function formatTime(date, locale, tz) {
-  const opts = { hour: '2-digit', minute: '2-digit', timeZone: tz };
   const h12 = hour12For(locale);
+  // "2:30 PM" on a wall clock, never "02:30 PM"; 24-hour keeps its two digits.
+  const opts = { hour: h12 === false ? '2-digit' : 'numeric', minute: '2-digit', timeZone: tz };
   if (h12 !== undefined) opts.hour12 = h12;
   // `hourCycle: h23` is what stops a 24-hour locale printing midnight as 24:00.
   if (h12 === false) opts.hourCycle = 'h23';
