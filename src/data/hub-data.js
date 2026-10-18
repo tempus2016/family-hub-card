@@ -49,13 +49,13 @@ export class HubData {
     if (this._startOffset === days) return;
     this._startOffset = days;
     // Only the event window moves; the to-do lists are not date-scoped.
-    this.refresh({ events: true, chores: false });
+    this.refresh({ events: true, chores: false, stale: true });
   }
 
   set windowDays(days) {
     if (this._windowDays === days) return;
     this._windowDays = days;
-    this.refresh({ events: true, chores: false });
+    this.refresh({ events: true, chores: false, stale: true });
   }
 
   /** Every entity whose change should move something on screen. */
@@ -109,11 +109,14 @@ export class HubData {
    * A request arriving mid-flight for a source the running one skipped is
    * queued and runs once, after it.
    */
-  async refresh({ events = true, chores = true } = {}) {
+  async refresh({ events = true, chores = true, stale = false } = {}) {
     if (this._inflight) {
+      // `stale` means the request's parameters changed (window or paging), so
+      // the fetch already running is answering the wrong question and must be
+      // followed by another, not merged into it.
       this._queued = {
-        events: (this._queued?.events || false) || (events && !this._inflightScope.events),
-        chores: (this._queued?.chores || false) || (chores && !this._inflightScope.chores),
+        events: (this._queued?.events || false) || (events && (stale || !this._inflightScope.events)),
+        chores: (this._queued?.chores || false) || (chores && (stale || !this._inflightScope.chores)),
       };
       return this._inflight;
     }

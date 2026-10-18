@@ -533,3 +533,29 @@ describe('avatar resolution', () => {
     expect(hub.model.people[0].icon).toBe('mdi:unicorn');
   });
 });
+
+describe('window changes during a fetch', () => {
+  it('refetches with the new window when it changes while a fetch is in flight', async () => {
+    const paths = [];
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    const hass = makeHass({
+      callApi: async (_m, path) => { paths.push(path); if (paths.length === 1) await gate; return []; },
+    });
+    const { hub } = makeHub({ view: 'week', people: [{ name: 'Ana', calendars: ['calendar.ana'] }] }, hass);
+    const first = hub.refresh();
+    hub.windowDays = 1;
+    release();
+    await first;
+    await new Promise((r) => setTimeout(r, 0));
+    await hub._inflight;
+
+    expect(paths).toHaveLength(2);
+    const span = (p) => {
+      const q = new URLSearchParams(p.split('?')[1]);
+      return (new Date(q.get('end')) - new Date(q.get('start'))) / 3600000;
+    };
+    expect(span(paths[0])).toBe(7 * 24);
+    expect(span(paths[1])).toBe(24);
+  });
+});
