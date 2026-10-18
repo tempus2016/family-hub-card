@@ -45,10 +45,16 @@ export class TickController {
     return this.pending.has(`${personId}:${choreId}`);
   }
 
-  tap(personId, choreId) {
+  tap(personId, choreId, needs = null) {
     // Ticking only ever applies to today's list, so a paged view must not look
     // tappable and silently do nothing.
     if (this.host.readOnly) return;
+    // A chore that needs a note, photo or count cannot be undone-by-waiting:
+    // the card opens a sheet to collect it, and the sheet's Done is the commit.
+    if (needs) {
+      this.host.dispatchEvent(new CustomEvent('chore-needs', { detail: { personId, choreId }, bubbles: true, composed: true }));
+      return;
+    }
     const key = `${personId}:${choreId}`;
     const existing = this.pending.get(key);
     if (existing) {
@@ -96,8 +102,6 @@ const CHECK = html`<svg viewBox="0 0 24 24"><path d="M5 12.5l4 4L19 7"/></svg>`;
 
 export function renderTick(ticks, person, task, { inline = false } = {}) {
   const cls = inline ? 'tap inline' : 'tap';
-  // A chore TaskMate will refuse gets no box at all; the caller shows why.
-  if (task.blocked) return nothing;
   if (!task.tappable) {
     return html`<span class=${cls}><span class="tick on">${CHECK}</span></span>`;
   }
@@ -110,7 +114,7 @@ export function renderTick(ticks, person, task, { inline = false } = {}) {
       role="checkbox"
       aria-checked=${done ? 'true' : 'false'}
       aria-label=${t(lang, 'complete_for', { chore: task.summary, name: person.name })}
-      @click=${(e) => { e.stopPropagation(); ticks.tap(person.id, task.id); }}
+      @click=${(e) => { e.stopPropagation(); ticks.tap(person.id, task.id, task.needs); }}
       ?disabled=${ticks.host.readOnly}
     >
       <span class="tick ${done ? 'on' : ''} ${pending ? 'ring' : ''}"
@@ -123,7 +127,7 @@ export function renderTick(ticks, person, task, { inline = false } = {}) {
 export function renderBadge(lang, task, { inline = false } = {}) {
   const cls = inline ? 'badge inline-badge' : 'badge';
   if (task.pending) return html`<span class="${cls} waiting">${t(lang, 'waiting')}</span>`;
-  if (task.blocked) return html`<span class="${cls} blocked">${t(lang, `blocked_${task.blocked}`)}</span>`;
+  if (task.needs && !task.done) return html`<span class="${cls} needs">${t(lang, `needs_${task.needs}`)}</span>`;
   if (task.overdue && !task.done) return html`<span class="${cls} overdue">${t(lang, 'overdue')}</span>`;
   return nothing;
 }

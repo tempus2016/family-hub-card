@@ -3,6 +3,7 @@ import { fetchChores, completeChore } from './todo-source.js';
 import { readPoints, readCompletions, completionsForPerson } from './taskmate-source.js';
 import { buildTasks, progressOf } from './tasks.js';
 import { choreMeta } from './chore-meta.js';
+import { submitChore } from './taskmate-submit.js';
 import { msUntilNextLocalMidnight } from './time.js';
 import { logFailure } from './log.js';
 
@@ -260,6 +261,32 @@ export class HubData {
   stop() {
     this._cancels.forEach((c) => c());
     this._cancels = [];
+  }
+
+  /**
+   * Completes a chore that needed a note, photo or count, through TaskMate's
+   * own action. Optimistic like `complete`, but rethrows so the sheet can stay
+   * open and show why — the child has typed or photographed something.
+   */
+  async submit(personId, choreId, fields) {
+    const hass = this.getHass();
+    const person = this.model.people.find((p) => p.id === personId);
+    const childId = person?.taskmateChildId;
+    const chore = (this._chores[personId] || []).find((c) => c.id === choreId);
+    if (!childId || !chore) throw new Error('not a TaskMate chore');
+    const previous = chore.status;
+    chore.status = 'completed';
+    this._rebuild(hass);
+    this.onChange();
+    try {
+      await submitChore(hass, choreId, childId, fields);
+    } catch (err) {
+      logFailure(`submit:${choreId}`, `could not submit "${chore.summary}"`, err);
+      chore.status = previous;
+      this._rebuild(this.getHass());
+      this.onChange();
+      throw err;
+    }
   }
 
   async complete(personId, choreId) {

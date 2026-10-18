@@ -33,10 +33,13 @@ export function buildTasks(person, { now = new Date(), tz = 'UTC', maxCompleted 
       summary: c.summary,
       done,
       pending: false,
-      // A chore TaskMate will refuse without a note, photo or number gets no
-      // box: a box that un-ticks itself is worse than a label.
-      tappable: !done && !m?.blocked,
-      blocked: m?.blocked || null,
+      tappable: !done,
+      // A chore that needs a note, photo or count opens a sheet instead of
+      // the undo timer; see chore-meta.js.
+      needs: m?.needs || null,
+      asks: m?.asks || [],
+      unit: m?.unit || null,
+      max: m?.max || 0,
       icon: iconFor(c.summary, m),
       stars: m?.stars || 0,
       due: c.due || null,
@@ -62,7 +65,7 @@ export function buildTasks(person, { now = new Date(), tz = 'UTC', maxCompleted 
       done: true,
       pending: !c.approved,
       tappable: false,
-      blocked: null,
+      needs: null,
       icon: iconFor(c.name, m),
       stars: m?.stars || 0,
       due: null,

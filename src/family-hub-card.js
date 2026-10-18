@@ -11,6 +11,8 @@ import './screens/calendar-screen.js';
 import './screens/tasks-screen.js';
 import './screens/rewards-screen.js';
 import './screens/settings-screen.js';
+import './screens/submit-sheet.js';
+import { uploadPhoto, shrinkImage, friendlyError } from './data/taskmate-submit.js';
 import './add/add-dialog.js';
 import { availableTypes } from './add/add-controller.js';
 // Registers <family-hub-card-editor>, which getConfigElement() instantiates by
@@ -326,6 +328,33 @@ class FamilyHubCard extends LitElement {
     this._hub?.complete(personId, choreId);
   }
 
+  /** A chore that needs a note, photo or count: open the sheet for it. */
+  _onChoreNeeds(e) {
+    const { personId, choreId } = e.detail;
+    const person = this._hub?.model.people.find((p) => p.id === personId);
+    const task = person?.tasks?.find((x) => x.id === choreId);
+    if (!task) return;
+    this._submitFor = personId;
+    const sheet = this.renderRoot.querySelector('family-hub-submit-sheet');
+    sheet?.show({
+      personName: person.name,
+      personStyle: personStyle(person.color, this.dataset.scheme || 'light'),
+      task,
+      upload: async (blob) => uploadPhoto(this._hass, await shrinkImage(blob)),
+    });
+    this._armReturn();
+  }
+
+  async _onSubmitChore(e) {
+    const sheet = this.renderRoot.querySelector('family-hub-submit-sheet');
+    try {
+      await this._hub.submit(this._submitFor, e.detail.choreId, e.detail);
+      sheet?.done();
+    } catch (err) {
+      sheet?.fail(friendlyError(err, pickLanguage(this._hass)));
+    }
+  }
+
   // ── render ──────────────────────────────────────────────────────────────
 
   _title(now) {
@@ -410,6 +439,8 @@ class FamilyHubCard extends LitElement {
             </div>
           </div>
         </div>
+        <family-hub-submit-sheet .lang=${lang}
+          @submit-chore=${(e) => this._onSubmitChore(e)}></family-hub-submit-sheet>
         <family-hub-add-dialog
           .hass=${this._hass} .config=${this._config} .lang=${lang}
           .date=${new Date(now.getTime() + (this._calView === 'day' ? this._offset : 0) * DAY_MS)}
@@ -433,6 +464,7 @@ class FamilyHubCard extends LitElement {
           .isToday=${true} .hideCompleted=${Boolean(this._settings.hideCompleted)}
           .confirmWindow=${this._config.confirmWindow} .readOnly=${false}
           @chore-tap=${(e) => this._onChoreTap(e)}
+          @chore-needs=${(e) => this._onChoreNeeds(e)}
         ></family-hub-tasks-screen>`;
       case 'rewards':
         return html`<family-hub-rewards-screen
@@ -452,6 +484,7 @@ class FamilyHubCard extends LitElement {
           .inlineChores=${this._config.inlineChores}
           .confirmWindow=${this._config.confirmWindow} .readOnly=${!this._isToday}
           @chore-tap=${(e) => this._onChoreTap(e)}
+          @chore-needs=${(e) => this._onChoreNeeds(e)}
           @open-day=${(e) => this._openDay(e.detail.offset)}
           @open-screen=${(e) => this._setScreen(e.detail.screen)}
         ></family-hub-calendar-screen>`;

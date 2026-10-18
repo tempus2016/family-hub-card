@@ -2,22 +2,37 @@
  * What TaskMate knows about a chore beyond what its to-do list says.
  *
  * The to-do item carries only a name and a uid. TaskMate's chores sensor
- * lists the same chores with the same ids, plus the icon, the points, and the
- * flags that make a plain tick impossible: an open-ended chore needs a note,
- * a photo chore needs a photo, a quantity chore needs a number. TaskMate
- * refuses a bare `todo.update_item` on those (verified on 7.0.0), so the card
- * shows a label instead of a box rather than a box that un-ticks itself.
+ * lists the same chores with the same ids, plus the icon, the points, and
+ * what a child must hand over to complete one: an open-ended chore needs a
+ * note, a photo chore a photo, a quantity chore a number. TaskMate refuses a
+ * bare `todo.update_item` on those (verified on 7.0.0), so the card collects
+ * the missing piece in a sheet and submits through `taskmate.complete_chore`.
  */
 
-export function blockedReason(chore) {
+/** What the child has to supply, in the order TaskMate checks it. */
+export function needsOf(chore) {
   if (!chore) return null;
-  if (chore.open_ended) return 'note';
   if (chore.require_photo) return 'photo';
-  if (chore.quantity_unit) return 'quantity';
+  if (chore.open_ended) return 'note';
+  if (chore.quantity_unit && chore.task_type !== 'timed') return 'quantity';
   return null;
 }
 
-/** Map of to-do uid → { icon, stars, blocked, requiresApproval }. */
+/**
+ * Every field TaskMate's `async_complete_chore` will check for a child, in
+ * its order: photo, then note for an open-ended chore, then a count (which it
+ * ignores on open-ended and timed chores).
+ */
+export function asksOf(chore) {
+  if (!chore) return [];
+  const out = [];
+  if (chore.require_photo) out.push('photo');
+  if (chore.open_ended) out.push('note');
+  if (chore.quantity_unit && !chore.open_ended && chore.task_type !== 'timed') out.push('quantity');
+  return out;
+}
+
+/** Map of to-do uid → { icon, stars, needs, unit, max, requiresApproval }. */
 export function choreMeta(hass, entityId) {
   const out = new Map();
   if (!entityId) return out;
@@ -28,7 +43,10 @@ export function choreMeta(hass, entityId) {
     out.set(c.id, {
       icon: c.icon || null,
       stars: Number(c.effective_points ?? c.points) || 0,
-      blocked: blockedReason(c),
+      needs: needsOf(c),
+      asks: asksOf(c),
+      unit: c.quantity_unit || null,
+      max: Number(c.quantity_max) || 0,
       requiresApproval: c.requires_approval !== false,
     });
   }

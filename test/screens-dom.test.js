@@ -14,9 +14,9 @@ const ana = {
   chores: [{ id: 'c1', summary: 'Make bed', status: 'needs_action' }, { id: 'c2', summary: 'Brush teeth', status: 'completed' }, { id: 'c3', summary: 'Something extra', status: 'needs_action' }],
   completedToday: [], failures: [],
   tasks: [
-    { id: 'c1', summary: 'Make bed', done: false, pending: false, tappable: true, blocked: null, icon: 'mdi:bed', stars: 10, kind: 'todo', due: null },
-    { id: 'c2', summary: 'Brush teeth', done: true, pending: false, tappable: false, blocked: null, icon: 'mdi:toothbrush', stars: 5, kind: 'todo', due: null },
-    { id: 'c3', summary: 'Something extra', done: false, pending: false, tappable: false, blocked: 'note', icon: 'mdi:star', stars: 0, kind: 'todo', due: null },
+    { id: 'c1', summary: 'Make bed', done: false, pending: false, tappable: true, needs: null, icon: 'mdi:bed', stars: 10, kind: 'todo', due: null },
+    { id: 'c2', summary: 'Brush teeth', done: true, pending: false, tappable: false, needs: null, icon: 'mdi:toothbrush', stars: 5, kind: 'todo', due: null },
+    { id: 'c3', summary: 'Something extra', done: false, pending: false, tappable: true, needs: 'note', icon: 'mdi:star', stars: 0, kind: 'todo', due: null },
   ],
   progress: { done: 1, total: 3, pct: 33 },
 };
@@ -150,11 +150,18 @@ describe('tasks screen', () => {
     expect(tile.querySelector('button.tap')).toBeTruthy();
   });
 
-  it('shows a label instead of a tick for a chore TaskMate would refuse', async () => {
+  it('asks for what a chore needs instead of queueing a tick', async () => {
     const el = await mount('family-hub-tasks-screen', { model });
     const tile = $$(el, '.tile').find((x) => x.textContent.includes('Something extra'));
-    expect(tile.querySelector('button.tap')).toBeNull();
-    expect(tile.textContent).toMatch(/TaskMate/);
+    expect(tile.textContent).toMatch(/add a note/i);
+    const fired = [];
+    const needs = [];
+    el.addEventListener('chore-tap', (e) => fired.push(e.detail));
+    el.addEventListener('chore-needs', (e) => needs.push(e.detail));
+    tile.querySelector('button.tap').click();
+    await new Promise((r) => setTimeout(r, 120));
+    expect(fired).toEqual([]);
+    expect(needs).toEqual([{ personId: 'ana', choreId: 'c3' }]);
   });
 
   it('hides done tiles when asked', async () => {

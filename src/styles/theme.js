@@ -121,7 +121,7 @@ export const shared = css`
   .badge { font-size: 10.5px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; flex-shrink: 0; }
   .badge.waiting { color: var(--fh-star); }
   .badge.overdue { color: var(--error-color, #d64545); }
-  .badge.blocked { color: var(--fh-text-3); }
+  .badge.needs { color: var(--pc, var(--fh-text-2)); }
   .empty { padding: 40px 12px; text-align: center; color: var(--fh-text-2); }
   .empty h2 { font-family: var(--fh-serif); font-weight: 500; margin: 8px 0 6px; color: var(--fh-text); }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

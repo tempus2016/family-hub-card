@@ -113,3 +113,50 @@ describe('idle return', () => {
     } finally { vi.useRealTimers(); }
   });
 });
+
+describe('chores that need something', () => {
+  it('opens the sheet for a count chore and submits through TaskMate', async () => {
+    const hass = makeHass({
+      states: {
+        ...makeHass().states,
+        'sensor.taskmate_chores': { state: '1', attributes: { chores: [{ id: 'c1', name: 'Make bed', points: 2, quantity_unit: 'pillows', quantity_max: 4 }], todays_completions: [] } },
+      },
+    });
+    const el = await mount({ ...base, taskmate_chores: 'sensor.taskmate_chores', home: 'tasks' }, hass);
+    const tasks = $(el, 'family-hub-tasks-screen');
+    await tasks.updateComplete;
+    tasks.shadowRoot.querySelector('.tile button.tap').click();
+    await el.updateComplete;
+    const sheet = $(el, 'family-hub-submit-sheet');
+    await sheet.updateComplete;
+    expect(sheet.shadowRoot.textContent).toMatch(/pillows/);
+    sheet.shadowRoot.querySelector('button.inc').click();
+    await sheet.updateComplete;
+    sheet.shadowRoot.querySelector('button.go').click();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(hass.callService).toHaveBeenCalledWith('taskmate', 'complete_chore', { chore_id: 'c1', child_id: 'k1', quantity: 2 });
+    await sheet.updateComplete;
+    expect(sheet.shadowRoot.querySelector('.sheet')).toBeNull();
+  });
+
+  it('keeps the sheet open with a household message when TaskMate says unauthorized', async () => {
+    const hass = makeHass({
+      callService: vi.fn(async () => { const e = new Error('Unauthorized'); e.code = 'unauthorized'; throw e; }),
+      states: {
+        ...makeHass().states,
+        'sensor.taskmate_chores': { state: '1', attributes: { chores: [{ id: 'c1', name: 'Make bed', points: 2, quantity_unit: 'pillows' }], todays_completions: [] } },
+      },
+    });
+    const el = await mount({ ...base, taskmate_chores: 'sensor.taskmate_chores', home: 'tasks' }, hass);
+    const tasks = $(el, 'family-hub-tasks-screen');
+    await tasks.updateComplete;
+    tasks.shadowRoot.querySelector('.tile button.tap').click();
+    await el.updateComplete;
+    const sheet = $(el, 'family-hub-submit-sheet');
+    await sheet.updateComplete;
+    sheet.shadowRoot.querySelector('button.go').click();
+    await new Promise((r) => setTimeout(r, 10));
+    await sheet.updateComplete;
+    expect(sheet.shadowRoot.querySelector('.err').textContent).toMatch(/linked/);
+  });
+});

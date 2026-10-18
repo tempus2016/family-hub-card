@@ -48,9 +48,14 @@ day. Tap an event for its full time, location and description.
 
 One tinted column per person: avatar, name, a progress pill and a stars pill,
 four rings for Morning, Afternoon, Evening and Chores, then hero tiles with the
-chore's icon, name, stars and a round tick. Done tiles go a stronger tint. A
-chore TaskMate would refuse without a note, photo or count gets a label instead
-of a box.
+chore's icon, name, stars and a round tick. Done tiles go a stronger tint.
+
+TaskMate chores that need more than a tick open a sheet instead: a stepper for
+a count ("How many pages?"), a text box for an open-ended chore, the tablet's
+camera for a photo chore, or a photo and a note together. The sheet submits
+through TaskMate's own `complete_chore`, so approval rules apply as usual.
+This works for children who are not linked to their own Home Assistant
+account, the same rule TaskMate's kiosk card follows.
 
 ![Tasks board](images/tasks-tablet.png)
 

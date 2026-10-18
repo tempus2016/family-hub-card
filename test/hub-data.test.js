@@ -571,3 +571,32 @@ describe('chore calendar events', () => {
     expect(byCal).toEqual({ 'calendar.taskmate_ana': true, 'calendar.ana': false });
   });
 });
+
+describe('submitting a chore that needs something', () => {
+  const cfgT = {
+    people: [{ name: 'Ana', todo: 'todo.ana', points: 'sensor.ana_points' }],
+    taskmate_chores: 'sensor.taskmate_chores',
+  };
+  const states = {
+    'sensor.ana_points': { state: '1', attributes: { child_id: 'k1' } },
+    'sensor.taskmate_chores': { state: '1', attributes: { chores: [{ id: 'c1', name: 'Read', points: 2, quantity_unit: 'pages' }] } },
+  };
+
+  it('calls TaskMate with the child id and marks the chore done straight away', async () => {
+    const callService = vi.fn(async () => {});
+    const hass = makeHass({ states, callService, callWS: async () => ({ items: [{ uid: 'c1', summary: 'Read', status: 'needs_action' }] }) });
+    const { hub } = makeHub(cfgT, hass);
+    await hub.refresh();
+    await hub.submit('ana', 'c1', { needs: 'quantity', quantity: 12 });
+    expect(callService).toHaveBeenCalledWith('taskmate', 'complete_chore', { chore_id: 'c1', child_id: 'k1', quantity: 12 });
+    expect(hub.model.people[0].tasks[0].done).toBe(true);
+  });
+
+  it('puts the chore back and rethrows when TaskMate refuses', async () => {
+    const hass = makeHass({ states, callService: async () => { throw new Error('Say how many pages you did.'); }, callWS: async () => ({ items: [{ uid: 'c1', summary: 'Read', status: 'needs_action' }] }) });
+    const { hub } = makeHub(cfgT, hass);
+    await hub.refresh();
+    await expect(hub.submit('ana', 'c1', { needs: 'quantity', quantity: 0 })).rejects.toThrow(/how many/);
+    expect(hub.model.people[0].tasks[0].done).toBe(false);
+  });
+});
