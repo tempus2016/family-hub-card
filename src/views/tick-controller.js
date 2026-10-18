@@ -1,5 +1,6 @@
 import { html, nothing } from 'lit';
 import { t } from '../i18n.js';
+import { elapsedSeconds, formatClock } from '../data/timed.js';
 
 /**
  * Tap-to-complete with a client-side undo window, shared by every view that
@@ -127,6 +128,10 @@ export function renderTick(ticks, person, task, { inline = false } = {}) {
 export function renderBadge(lang, task, { inline = false } = {}) {
   const cls = inline ? 'badge inline-badge' : 'badge';
   if (task.pending) return html`<span class="${cls} waiting">${t(lang, 'waiting')}</span>`;
+  if (task.timer && !task.done) {
+    const time = formatClock(elapsedSeconds(task.timer));
+    return html`<span class="${cls} needs">${t(lang, task.timer.state === 'running' ? 'timer_running' : 'timer_paused', { time })}</span>`;
+  }
   if (task.needs && !task.done) return html`<span class="${cls} needs">${t(lang, `needs_${task.needs}`)}</span>`;
   if (task.overdue && !task.done) return html`<span class="${cls} overdue">${t(lang, 'overdue')}</span>`;
   return nothing;

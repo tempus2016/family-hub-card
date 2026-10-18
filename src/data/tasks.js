@@ -18,7 +18,7 @@ import { iconFor } from './chore-meta.js';
  * Every view used to do this merge itself, each slightly differently. It is
  * done once here, in `HubData._rebuild`, and views read `person.tasks`.
  */
-export function buildTasks(person, { now = new Date(), tz = 'UTC', maxCompleted = Infinity, meta = null } = {}) {
+export function buildTasks(person, { now = new Date(), tz = 'UTC', maxCompleted = Infinity, meta = null, sessions = null } = {}) {
   const { start: today } = localDayWindow(now, tz);
   const outstanding = [];
   const completed = [];
@@ -40,6 +40,10 @@ export function buildTasks(person, { now = new Date(), tz = 'UTC', maxCompleted 
       asks: m?.asks || [],
       unit: m?.unit || null,
       max: m?.max || 0,
+      rateMinutes: m?.rateMinutes || 0,
+      ratePoints: m?.ratePoints || 0,
+      capMinutes: m?.capMinutes || 0,
+      timer: (m?.needs === 'timer' && sessions?.get(`${c.id}|${person.taskmateChildId}`)) || null,
       icon: iconFor(c.summary, m),
       stars: m?.stars || 0,
       due: c.due || null,

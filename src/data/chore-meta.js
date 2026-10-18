@@ -15,6 +15,9 @@ export function needsOf(chore) {
   if (chore.require_photo) return 'photo';
   if (chore.open_ended) return 'note';
   if (chore.quantity_unit && chore.task_type !== 'timed') return 'quantity';
+  // A timed chore pays per minute through TaskMate's stopwatch; a plain tick
+  // would skip it and pay the flat points instead.
+  if (chore.task_type === 'timed') return 'timer';
   return null;
 }
 
@@ -47,6 +50,9 @@ export function choreMeta(hass, entityId) {
       asks: asksOf(c),
       unit: c.quantity_unit || null,
       max: Number(c.quantity_max) || 0,
+      rateMinutes: Number(c.timed_rate_minutes) || 0,
+      ratePoints: Number(c.timed_rate_points) || 0,
+      capMinutes: Number(c.timed_max_daily_minutes) || 0,
       requiresApproval: c.requires_approval !== false,
     });
   }

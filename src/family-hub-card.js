@@ -12,6 +12,7 @@ import './screens/tasks-screen.js';
 import './screens/rewards-screen.js';
 import './screens/settings-screen.js';
 import './screens/submit-sheet.js';
+import './screens/timer-sheet.js';
 import { uploadPhoto, shrinkImage, friendlyError } from './data/taskmate-submit.js';
 import './add/add-dialog.js';
 import { availableTypes } from './add/add-controller.js';
@@ -334,6 +335,16 @@ class FamilyHubCard extends LitElement {
     const person = this._hub?.model.people.find((p) => p.id === personId);
     const task = person?.tasks?.find((x) => x.id === choreId);
     if (!task) return;
+    if (task.needs === 'timer') {
+      this._timerFor = { personId, choreId };
+      this.renderRoot.querySelector('family-hub-timer-sheet')?.show({
+        personName: person.name,
+        personStyle: personStyle(person.color, this.dataset.scheme || 'light'),
+        task,
+      });
+      this._armReturn();
+      return;
+    }
     this._submitFor = personId;
     const sheet = this.renderRoot.querySelector('family-hub-submit-sheet');
     sheet?.show({
@@ -343,6 +354,25 @@ class FamilyHubCard extends LitElement {
       upload: async (blob) => uploadPhoto(this._hass, await shrinkImage(blob)),
     });
     this._armReturn();
+  }
+
+  async _onTimerAction(e) {
+    const sheet = this.renderRoot.querySelector('family-hub-timer-sheet');
+    const { personId, choreId } = this._timerFor || {};
+    try {
+      await this._hub.timer(personId, choreId, e.detail.action);
+      if (e.detail.action === 'finish') sheet?.done();
+      else sheet?.settled();
+    } catch (err) {
+      sheet?.fail(friendlyError(err, pickLanguage(this._hass)));
+    }
+  }
+
+  /** The timed task as the model has it now, so the sheet follows TaskMate. */
+  _timerTask() {
+    if (!this._timerFor || !this._hub) return null;
+    const person = this._hub.model.people.find((p) => p.id === this._timerFor.personId);
+    return person?.tasks?.find((x) => x.id === this._timerFor.choreId) || null;
   }
 
   async _onSubmitChore(e) {
@@ -439,6 +469,8 @@ class FamilyHubCard extends LitElement {
             </div>
           </div>
         </div>
+        <family-hub-timer-sheet .lang=${lang} .task=${this._timerTask()}
+          @timer-action=${(e) => this._onTimerAction(e)}></family-hub-timer-sheet>
         <family-hub-submit-sheet .lang=${lang}
           @submit-chore=${(e) => this._onSubmitChore(e)}></family-hub-submit-sheet>
         <family-hub-add-dialog

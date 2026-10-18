@@ -4,6 +4,7 @@ import { readPoints, readCompletions, completionsForPerson } from './taskmate-so
 import { buildTasks, progressOf } from './tasks.js';
 import { choreMeta } from './chore-meta.js';
 import { submitChore } from './taskmate-submit.js';
+import { readSessions, timerAction } from './timed.js';
 import { msUntilNextLocalMidnight } from './time.js';
 import { logFailure } from './log.js';
 
@@ -204,6 +205,7 @@ export class HubData {
   _rebuild(hass) {
     const completions = readCompletions(hass, this.config.taskmateChores);
     const meta = choreMeta(hass, this.config.taskmateChores);
+    const sessions = readSessions(hass, this.config.taskmateChores);
     const choreCals = new Set(this.config.choreCalendars || []);
     const now = this.getNow();
 
@@ -225,7 +227,7 @@ export class HubData {
       };
       // Merged once here so every view reads the same list.
       person.tasks = buildTasks(person, {
-        now, tz: this._tz, maxCompleted: this.config.maxCompleted, meta,
+        now, tz: this._tz, maxCompleted: this.config.maxCompleted, meta, sessions,
       });
       person.progress = progressOf(person);
       return person;
@@ -285,6 +287,22 @@ export class HubData {
       chore.status = previous;
       this._rebuild(this.getHass());
       this.onChange();
+      throw err;
+    }
+  }
+
+  /**
+   * Start, pause or finish a timed chore. TaskMate's state comes back through
+   * the chores sensor, which hassChanged already watches; finishing changes
+   * the to-do list too, which triggers its own refetch.
+   */
+  async timer(personId, choreId, action) {
+    const person = this.model.people.find((p) => p.id === personId);
+    if (!person?.taskmateChildId) throw new Error('not a TaskMate chore');
+    try {
+      await timerAction(this.getHass(), action, choreId, person.taskmateChildId);
+    } catch (err) {
+      logFailure(`timer:${choreId}`, `could not ${action} the timer`, err);
       throw err;
     }
   }

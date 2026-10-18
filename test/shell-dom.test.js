@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '../src/family-hub-card.js';
 
 const TZ = 'Europe/London';
@@ -25,6 +25,11 @@ function makeHass(over = {}) {
     ...over,
   };
 }
+// The fixtures are Sunday 18 October 2026; pin Date so the suite does not
+// depend on the day it runs. Only Date is faked, so timers stay real.
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-10-18T10:00:00Z')); });
+afterEach(() => { vi.useRealTimers(); });
+
 const base = { people: [{ name: 'Ana', calendars: ['calendar.ana'], todo: 'todo.ana', points: 'sensor.ana_points' }, { name: 'Ben', calendars: ['calendar.ben'] }] };
 
 async function mount(config, hass = makeHass()) {
@@ -100,7 +105,8 @@ describe('theme', () => {
 describe('idle return', () => {
   it('goes back to the home screen and today after the return window', async () => {
     const el = await mount({ ...base, return_to_today: 10 });
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    vi.setSystemTime(new Date('2026-10-18T10:00:00Z'));
     try {
       $(el, '.rail button[data-screen="tasks"]').click();
       el._page(1);
@@ -158,5 +164,44 @@ describe('chores that need something', () => {
     await new Promise((r) => setTimeout(r, 10));
     await sheet.updateComplete;
     expect(sheet.shadowRoot.querySelector('.err').textContent).toMatch(/linked/);
+  });
+});
+
+describe('timed chores', () => {
+  it('opens the timer from a timed tile and starts TaskMate’s timer', async () => {
+    const hass = makeHass({
+      states: {
+        ...makeHass().states,
+        'sensor.taskmate_chores': { state: '1', attributes: { chores: [{ id: 'c1', name: 'Make bed', task_type: 'timed', timed_rate_points: 10, timed_rate_minutes: 5 }], todays_completions: [], active_timed_sessions: [] } },
+      },
+    });
+    const el = await mount({ ...base, taskmate_chores: 'sensor.taskmate_chores', home: 'tasks' }, hass);
+    const tasks = $(el, 'family-hub-tasks-screen');
+    await tasks.updateComplete;
+    expect(tasks.shadowRoot.querySelector('.tile').textContent).toMatch(/start the timer/i);
+    tasks.shadowRoot.querySelector('.tile button.tap').click();
+    await el.updateComplete;
+    const sheet = $(el, 'family-hub-timer-sheet');
+    await sheet.updateComplete;
+    sheet.shadowRoot.querySelector('button.start').click();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(hass.callService).toHaveBeenCalledWith('taskmate', 'start_timed_task', { chore_id: 'c1', child_id: 'k1' });
+  });
+
+  it('shows a running timer on the tile', async () => {
+    const hass = makeHass({
+      states: {
+        ...makeHass().states,
+        'sensor.taskmate_chores': { state: '1', attributes: {
+          chores: [{ id: 'c1', name: 'Make bed', task_type: 'timed', timed_rate_points: 10, timed_rate_minutes: 5 }],
+          todays_completions: [],
+          active_timed_sessions: [{ chore_id: 'c1', child_id: 'k1', state: 'paused', total_seconds_today: 360 }],
+        } },
+      },
+    });
+    const el = await mount({ ...base, taskmate_chores: 'sensor.taskmate_chores', home: 'tasks' }, hass);
+    const tasks = $(el, 'family-hub-tasks-screen');
+    await tasks.updateComplete;
+    expect(tasks.shadowRoot.querySelector('.tile').textContent).toMatch(/paused · 6:00/i);
   });
 });

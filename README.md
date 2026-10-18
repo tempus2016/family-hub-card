@@ -54,6 +54,9 @@ TaskMate chores that need more than a tick open a sheet instead: a stepper for
 a count ("How many pages?"), a text box for an open-ended chore, the tablet's
 camera for a photo chore, or a photo and a note together. The sheet submits
 through TaskMate's own `complete_chore`, so approval rules apply as usual.
+Timed chores open TaskMate's stopwatch: Start, Pause, Resume and Finish, with
+the points earned so far. The timer runs in TaskMate, so it keeps going while
+the tablet sleeps and shows on the tile as "running · 4:12".
 This works for children who are not linked to their own Home Assistant
 account, the same rule TaskMate's kiosk card follows.
 

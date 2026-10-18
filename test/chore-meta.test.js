@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readSessions } from '../src/data/timed.js';
 import { choreMeta, iconFor, needsOf, asksOf } from '../src/data/chore-meta.js';
 import { buildTasks } from '../src/data/tasks.js';
 
@@ -72,5 +73,30 @@ describe('asksOf', () => {
   it('drops the count on an open-ended or timed chore, as TaskMate ignores it there', () => {
     expect(asksOf({ open_ended: true, quantity_unit: 'pages' })).toEqual(['note']);
     expect(asksOf({ task_type: 'timed', quantity_unit: 'pages' })).toEqual([]);
+  });
+});
+
+describe('timed chores', () => {
+  it('need the timer and carry the rate and cap', () => {
+    const h = { states: { 's': { state: '1', attributes: { chores: [
+      { id: 't1', name: 'Practise piano', points: 0, task_type: 'timed', timed_rate_points: 10, timed_rate_minutes: 5, timed_max_daily_minutes: 30 },
+    ] } } } };
+    expect(choreMeta(h, 's').get('t1')).toMatchObject({ needs: 'timer', rateMinutes: 5, ratePoints: 10, capMinutes: 30 });
+  });
+
+  it('let a photo requirement still come first', () => {
+    expect(needsOf({ task_type: 'timed', require_photo: true })).toBe('photo');
+  });
+});
+
+describe('buildTasks with a live timer session', () => {
+  it('attaches the session to the timed task', () => {
+    const h = { states: { 's': { state: '1', attributes: {
+      chores: [{ id: 't1', name: 'Piano', task_type: 'timed', timed_rate_points: 10, timed_rate_minutes: 5 }],
+      active_timed_sessions: [{ chore_id: 't1', child_id: 'k1', state: 'paused', total_seconds_today: 90 }],
+    } } } };
+    const person = { id: 'ana', taskmateChildId: 'k1', todo: 'todo.ana', chores: [{ id: 't1', summary: 'Piano', status: 'needs_action' }], completedToday: [] };
+    const tasks = buildTasks(person, { meta: choreMeta(h, 's'), sessions: readSessions(h, 's') });
+    expect(tasks[0]).toMatchObject({ needs: 'timer', timer: { state: 'paused', total: 90 } });
   });
 });
