@@ -8,11 +8,14 @@ updates:
     labels:
       - "dependencies"
       - "ci"
+    # Don't bump onto a release that is hours old — a freshly published action
+    # version is the one most likely to be yanked or compromised.
+    cooldown:
+      default-days: 7
 
-  # Grouped so routine bumps arrive as one PR rather than one per package.
-  # Note that `lit` is a real runtime dependency here — it is bundled into
-  # dist/family-hub-card.js — so its updates are kept separate and reviewed on
-  # their own rather than folded into the dev-tooling group.
+  # Build tooling only. `lit` is a real runtime dependency — it is bundled into
+  # dist/family-hub-card.js — so it is deliberately left out of the groups and
+  # raises its own PR, which nothing merges unattended.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -21,9 +24,25 @@ updates:
     labels:
       - "dependencies"
       - "build"
+    cooldown:
+      default-days: 7
     groups:
-      npm-dev-dependencies:
+      # What the release job runs with a token that can write to the repository and
+      # publish the asset. Kept apart so a person looks at these, while the rest merge
+      # on their own (see workflows/dependabot-auto-merge.yml).
+      release-tooling:
         dependency-type: "development"
+        patterns:
+          - "rollup"
+          - "@rollup/*"
+        update-types:
+          - "minor"
+          - "patch"
+      build-tooling:
+        dependency-type: "development"
+        exclude-patterns:
+          - "rollup"
+          - "@rollup/*"
         update-types:
           - "minor"
           - "patch"

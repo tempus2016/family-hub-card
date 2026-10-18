@@ -1,7 +1,6 @@
 # Source of truth for repository labels, synced by .github/workflows/labels.yml.
-# Edit here and push to main to create/update labels. Deletion is disabled
-# (skip_delete: true) so existing labels not listed here are left untouched —
-# flip that in the workflow once this list is known-complete.
+# Edit here and push to main to create or update labels. Deletion is disabled, so
+# labels not listed here are left alone.
 
 # ── Type ─────────────────────────────────────────────────────────────────────
 - name: bug
@@ -33,17 +32,23 @@
 - name: needs-info
   color: e99695
   description: More information needed from the reporter
+- name: confirmed
+  color: 0e8a16
+  description: Reproduced
 - name: stale
   color: cccccc
   description: No recent activity — may be closed if it stays inactive
 
 # ── Conversation state (set automatically on comment) ────────────────────────
-- name: Author Reply
+- name: Developer Reply
   color: 5319e7
-  description: Maintainer has replied — awaiting the reporter
+  description: The developer replied last
+- name: Author Reply
+  color: 1d76db
+  description: Whoever opened the issue replied last
 - name: User Reply
   color: 0e8a16
-  description: Reporter has replied — awaiting the maintainer
+  description: Somebody else replied last
 
 # ── Resolution ───────────────────────────────────────────────────────────────
 - name: duplicate
@@ -95,3 +100,6 @@
 - name: help wanted
   color: 008672
   description: Extra attention is welcome
+- name: recipe
+  color: c2e0c6
+  description: A setup somebody shared, or a dashboard shape to work out
