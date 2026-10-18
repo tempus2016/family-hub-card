@@ -96,3 +96,23 @@ describe('completionsForPerson', () => {
     expect(completionsForPerson(completions, { id: 'ana' })).toEqual([]);
   });
 });
+
+describe('readPoints avatar and streak', () => {
+  it('reads the streak, the avatar icon and the avatar image', () => {
+    const hass = { states: { 'sensor.ana_points': { state: '1', attributes: {
+      current_streak: 5, avatar: 'mdi:unicorn', avatar_image: '/api/taskmate/avatar/ana.png',
+    } } } };
+    const p = readPoints(hass, { id: 'ana', points: 'sensor.ana_points' });
+    expect(p.streak).toBe(5);
+    expect(p.avatarIcon).toBe('mdi:unicorn');
+    expect(p.avatarImage).toBe('/api/taskmate/avatar/ana.png');
+  });
+
+  it('leaves them empty when absent', () => {
+    const hass = { states: { 'sensor.ana_points': { state: '1', attributes: {} } } };
+    const p = readPoints(hass, { id: 'ana', points: 'sensor.ana_points' });
+    expect(p.streak).toBe(0);
+    expect(p.avatarIcon).toBeNull();
+    expect(p.avatarImage).toBeNull();
+  });
+});

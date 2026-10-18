@@ -29,8 +29,13 @@ Works with any `calendar.*` and `todo.*` entities. No cloud, no account.
 ![Family Hub Card on a wall tablet](images/agenda-tablet.png)
 
 Everyone's day in one timeline with a live "now" line, and each person's
-outstanding chores beside it. Tapping a chore ticks it off, with a few seconds
-to undo before anything is sent.
+outstanding chores beside it. Chores that have a matching calendar event carry
+their tick box on the event itself. Tapping a chore ticks it off, with a few
+seconds to undo before anything is sent. Tap an event to see its full time,
+location and description.
+
+A family calendar everyone shares goes in `shared_calendars:` and shows once,
+in a neutral colour, rather than once per person.
 
 On a phone the chore panel drops below the timeline, so the same dashboard works
 on the wall and in your pocket:
@@ -39,9 +44,11 @@ on the wall and in your pocket:
 
 ### Week
 
-`view: week` lays the same data out as a seven-day grid, so you can see what is
-coming before it arrives. Below 900px it falls back to agenda rather than
-scrolling sideways.
+`view: week` lays the same data out as a seven-day grid starting on Monday
+(`week_start: sunday` or `today` to change that), with today highlighted
+wherever it falls. Daily chores collapse into one counted chip per day so real
+events stand out. Below 900px it falls back to agenda rather than scrolling
+sideways.
 
 ![Family Hub Card in week view](images/week-tablet.png)
 
@@ -76,11 +83,13 @@ header:
   clock: true
   weather: weather.home
   subtitle: sensor.bin_collection
+shared_calendars: [calendar.family]
 people:
   - name: Ana
     color: "#4A9EFF"
-    calendars: [calendar.ana_work, calendar.family]
+    calendars: [calendar.ana_work]
     todo: todo.ana_chores
+    person: person.ana
 ```
 
 | Option | Default | Notes |
@@ -89,11 +98,20 @@ people:
 | `view` | `agenda` | `agenda`, `week` or `columns`. `week` falls back to agenda below 900px |
 | `refresh_interval` | `300` | Seconds; minimum 60. One HTTP call per calendar per refresh |
 | `chore_filter` | `today` | `today` = overdue, due today and undated. `all` = everything |
-| `inline_chores` | `false` | Tick a chore from its matching calendar event, and drop it from the chores list. Agenda and columns only |
-| `tabs` | `false` | Show Calendar and Tasks tabs, moving chores onto their own Skylight-style board grouped by time of day. Ignored when `inline_chores` is on |
+| `inline_chores` | `true` | Tick a chore from its matching calendar event, and drop it from the chores list. Agenda and columns only. Set `false` for a separate chore list |
+| `tabs` | `false` | Show Calendar and Tasks tabs, moving chores onto their own Skylight-style board grouped by time of day. Turns `inline_chores` off |
 | `confirm_window` | `3` | Seconds to undo a tick before it is sent. `0` completes immediately |
+| `week_start` | `monday` | `monday`, `sunday`, or `today` for a rolling seven days |
+| `max_completed` | `3` | How many completed items from a stock to-do list stay visible, struck through. `0` hides them |
+| `shared_calendars` | — | Calendars for the whole family. Shown once as a neutral "Family" row; `shared_name` and `shared_color` rename and recolour it |
 | `taskmate_chores` | — | TaskMate's chores sensor, for completed-today and approval state |
-| `people[].points` | — | A points sensor, shown as a balance beside the person |
+| `people[].points` | — | A points sensor, shown as a balance beside the person, with their streak when TaskMate reports one |
+| `people[].person` | — | A `person.*` entity whose photo becomes the avatar |
+| `people[].picture` | — | A picture URL for the avatar, overriding everything else |
+
+The card follows the Home Assistant profile for language (English and
+Portuguese so far) and for 12- or 24-hour time. Overdue chores are marked in
+red, and a person whose chores are all done gets a tick on their avatar.
 
 Each person needs `calendars`, `todo`, or both. Every option, including the
 per-person keys and the validation rules:

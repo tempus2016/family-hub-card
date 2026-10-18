@@ -1,5 +1,6 @@
 import { LitElement, html, css, nothing } from 'lit';
 import { sharedStyles } from '../styles/shared.js';
+import { t } from '../i18n.js';
 import {
   availableTypes,
   todoListOptions,
@@ -10,11 +11,7 @@ import {
   TASKMATE_PANEL,
 } from './add-controller.js';
 
-const LABELS = {
-  todo: 'To-do task',
-  calendar: 'Calendar event',
-  chore: 'TaskMate chore',
-};
+const LABEL_KEYS = { todo: 'todo_task', calendar: 'calendar_event', chore: 'taskmate_chore' };
 
 /**
  * The add flow: a type picker, then one form per type.
@@ -28,6 +25,7 @@ export class FamilyHubAddDialog extends LitElement {
     hass: { attribute: false },
     config: { attribute: false },
     date: { attribute: false },
+    lang: { attribute: false },
     open: { type: Boolean },
     _type: { state: true },
     _busy: { state: true },
@@ -67,7 +65,12 @@ export class FamilyHubAddDialog extends LitElement {
   constructor() {
     super();
     this.open = false;
+    this.lang = 'en';
     this._reset();
+  }
+
+  _t(key, vars) {
+    return t(this.lang || 'en', key, vars);
   }
 
   _reset() {
@@ -166,16 +169,16 @@ export class FamilyHubAddDialog extends LitElement {
   _picker() {
     const types = availableTypes(this.hass, this.config);
     return html`
-      <h2>Add</h2>
+      <h2>${this._t('add')}</h2>
       <div class="types">
         ${types.map(
-          (t) => html`<button class="type"
-            @click=${() => (t === 'chore' ? this._openTaskMate() : (this._type = t))}
-          >${LABELS[t]}${t === 'chore' ? html`<span class="hint">opens TaskMate</span>` : nothing}</button>`,
+          (type) => html`<button class="type"
+            @click=${() => (type === 'chore' ? this._openTaskMate() : (this._type = type))}
+          >${this._t(LABEL_KEYS[type])}${type === 'chore' ? html`<span class="hint">${this._t('opens_taskmate')}</span>` : nothing}</button>`,
         )}
       </div>
       <div class="actions">
-        <button class="btn cancel" @click=${() => this._close()}>Cancel</button>
+        <button class="btn cancel" @click=${() => this._close()}>${this._t('cancel')}</button>
       </div>
     `;
   }
@@ -185,13 +188,13 @@ export class FamilyHubAddDialog extends LitElement {
     const valid = Boolean(this._fields.title && this._fields.entityId);
 
     return html`
-      <h2>${LABELS[this._type]}</h2>
+      <h2>${this._t(LABEL_KEYS[this._type])}</h2>
       ${body}
       ${this._error ? html`<div class="err">${this._error}</div>` : nothing}
       <div class="actions">
-        <button class="btn cancel" @click=${() => this._close()} ?disabled=${this._busy}>Cancel</button>
+        <button class="btn cancel" @click=${() => this._close()} ?disabled=${this._busy}>${this._t('cancel')}</button>
         <button class="btn go" @click=${() => this._submit()} ?disabled=${this._busy || !valid}>
-          ${this._busy ? 'Adding…' : 'Add'}
+          ${this._busy ? this._t('adding') : this._t('add')}
         </button>
       </div>
     `;
@@ -201,7 +204,7 @@ export class FamilyHubAddDialog extends LitElement {
     return html`
       <label>${label}</label>
       <select @change=${(e) => this._set('entityId', e.target.value)}>
-        <option value="">Choose…</option>
+        <option value="">${this._t('choose')}</option>
         ${ids.map(
           (id) => html`<option value=${id}>
             ${this.hass.states[id]?.attributes?.friendly_name || id}
@@ -216,26 +219,24 @@ export class FamilyHubAddDialog extends LitElement {
     const blocked = options.filter((o) => !o.canCreate);
     const chosen = this._fields.entityId;
     return html`
-      <label>List</label>
+      <label>${this._t('list')}</label>
       <select @change=${(e) => this._set('entityId', e.target.value)}>
-        <option value="">Choose…</option>
+        <option value="">${this._t('choose')}</option>
         ${options.map(
           (o) => html`<option value=${o.id} ?disabled=${!o.canCreate}>
-            ${this.hass.states[o.id]?.attributes?.friendly_name || o.id}${o.canCreate ? '' : ' — add in TaskMate'}
+            ${this.hass.states[o.id]?.attributes?.friendly_name || o.id}${o.canCreate ? '' : ` — ${this._t('add_in_taskmate')}`}
           </option>`,
         )}
       </select>
       ${blocked.length
         ? html`<div class="hintline">
-            ${blocked.length === 1 ? 'One list does not' : `${blocked.length} lists do not`}
-            accept new items directly. TaskMate chores carry points, recurrence and
-            assignment, so they are created in TaskMate.
+            ${blocked.length === 1 ? this._t('list_blocked') : this._t('lists_blocked', { n: blocked.length })}
           </div>`
         : nothing}
-      <label>Task</label>
+      <label>${this._t('task')}</label>
       <input type="text" @input=${(e) => this._set('title', e.target.value)} />
       ${chosen && supportsDueDate(this.hass, chosen)
-        ? html`<label>Due (optional)</label>
+        ? html`<label>${this._t('due_optional')}</label>
             <input type="date" @input=${(e) => this._set('due', e.target.value)} />`
         : nothing}
     `;
@@ -243,25 +244,25 @@ export class FamilyHubAddDialog extends LitElement {
 
   _eventForm() {
     return html`
-      ${this._entitySelect(creatableCalendars(this.hass, this.config), 'Calendar')}
-      <label>Event</label>
+      ${this._entitySelect(creatableCalendars(this.hass, this.config), this._t('calendar'))}
+      <label>${this._t('event')}</label>
       <input type="text" @input=${(e) => this._set('title', e.target.value)} />
-      <label>Date</label>
+      <label>${this._t('date')}</label>
       <input type="date" .value=${this._fields.date ?? this._isoDate()}
         @input=${(e) => this._set('date', e.target.value)} />
       <div class="check">
         <input type="checkbox" id="allday" @change=${(e) => this._set('allDay', e.target.checked)} />
-        <label for="allday" style="margin:0">All day</label>
+        <label for="allday" style="margin:0">${this._t('all_day')}</label>
       </div>
       ${this._fields.allDay
         ? nothing
         : html`<div class="row">
             <div>
-              <label>Start</label>
+              <label>${this._t('start')}</label>
               <input type="time" @input=${(e) => this._set('start', e.target.value)} />
             </div>
             <div>
-              <label>End (optional)</label>
+              <label>${this._t('end_optional')}</label>
               <input type="time" @input=${(e) => this._set('end', e.target.value)} />
             </div>
           </div>`}

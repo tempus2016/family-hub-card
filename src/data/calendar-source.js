@@ -14,7 +14,7 @@ function parseAllDay(dateStr, tz) {
   return start;
 }
 
-export function normaliseEvent(raw, personId, tz) {
+export function normaliseEvent(raw, personId, tz, calendar = personId) {
   const allDay = Boolean(raw.start?.date && !raw.start?.dateTime);
   const start = allDay ? parseAllDay(raw.start.date, tz) : new Date(raw.start.dateTime);
   const end = allDay
@@ -22,13 +22,17 @@ export function normaliseEvent(raw, personId, tz) {
     : new Date(raw.end?.dateTime || raw.start.dateTime);
   const summary = raw.summary || '';
   return {
-    id: `${personId}:${summary}:${start.toISOString()}`,
+    // Keyed on the calendar, not the person, so the same event reaching two
+    // people through a shared calendar is recognisably the same event.
+    id: `${calendar}:${summary}:${start.toISOString()}`,
+    calendar,
     personId,
     summary,
     start,
     end,
     allDay,
     location: raw.location || '',
+    description: raw.description || '',
   };
 }
 
@@ -36,25 +40,28 @@ export async function fetchEvents(hass, people, now, tz, days = 1, offsetDays = 
   const { start, end } = localDayWindow(now, tz, days, offsetDays);
   const qs = `start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
 
-  const jobs = [];
+  // One fetch per calendar entity, however many people list it. A family
+  // calendar under three people used to cost three identical HTTP calls.
+  const owners = new Map();
   for (const person of people) {
     for (const entity of person.calendars || []) {
-      jobs.push({ person, entity });
+      if (!owners.has(entity)) owners.set(entity, []);
+      owners.get(entity).push(person);
     }
   }
 
   const failures = [];
   const failuresByPerson = {};
   const results = await Promise.all(
-    jobs.map(async ({ person, entity }) => {
+    [...owners.entries()].map(async ([entity, persons]) => {
       try {
         const raw = await hass.callApi('GET', `calendars/${encodeURIComponent(entity)}?${qs}`);
         logRecovery(`calendar:${entity}`, `${entity} is readable again`);
-        return (raw || []).map((r) => normaliseEvent(r, person.id, tz));
+        return persons.flatMap((person) => (raw || []).map((r) => normaliseEvent(r, person.id, tz, entity)));
       } catch (err) {
         logFailure(`calendar:${entity}`, `could not read ${entity}`, err);
         failures.push(entity);
-        (failuresByPerson[person.id] ||= []).push(entity);
+        for (const person of persons) (failuresByPerson[person.id] ||= []).push(entity);
         return [];
       }
     }),

@@ -27,6 +27,9 @@ export function filterChores(items, filter, now, tz) {
       summary: it.summary || '',
       status: it.status === 'completed' ? 'completed' : 'needs_action',
       due: parseDue(it.due),
+      // A date-only due is anchored at midday for stability; that anchor is
+      // not a time of day and must not file the chore under "afternoon".
+      dueHasTime: Boolean(it.due) && !/^\d{4}-\d{2}-\d{2}$/.test(it.due),
     }))
     .filter((c) => {
       if (filter === 'all') return true;

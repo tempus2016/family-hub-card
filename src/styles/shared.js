@@ -116,10 +116,33 @@ export const sharedStyles = css`
     padding: 6px 0 2px;
   }
 
+  /* Pill-sized status words after a task name. */
+  .badge { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; flex-shrink: 0; }
+  .badge.waiting { color: var(--warning-color, #FFB84A); }
+  .badge.overdue { color: var(--error-color, #d64545); }
+  .inline-badge { margin-right: 8px; vertical-align: middle; }
+
   @media (prefers-reduced-motion: reduce) {
     * {
       animation: none !important;
       transition: none !important;
     }
   }
+`;
+
+/**
+ * The tick box and task row, identical in every view that has one.
+ */
+export const tickStyles = css`
+  .chore { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--fh-chore-text); }
+  .chore .name { flex: 1; min-width: 0; }
+  .chore.done .name { text-decoration: line-through; color: var(--fh-text-dim); }
+  .chore.pending .name { font-style: italic; }
+  .chore.overdue .name { color: var(--error-color, #d64545); }
+  .box { width: 19px; height: 19px; border-radius: 5px; background: var(--fh-chip); flex-shrink: 0; position: relative; }
+  .box.done { background: var(--pc); }
+  .box.done::after { content: '\\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--fh-bg); font-weight: 800; }
+  .tap.inline { display: inline-flex; vertical-align: middle; margin-right: 8px; }
+  .ring { animation: fh-ring var(--fh-window, 3s) linear forwards; }
+  @keyframes fh-ring { from { opacity: 1; } to { opacity: 0.35; } }
 `;

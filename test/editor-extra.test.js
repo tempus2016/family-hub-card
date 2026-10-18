@@ -126,3 +126,45 @@ describe('inline chores option', () => {
     expect(normaliseConfig(emitted[emitted.length - 1]).inlineChores).toBe(true);
   });
 });
+
+describe('editor emits the new options', () => {
+  it('emits week_start', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', todo: 'todo.a' }] });
+    ed._setCard('week_start', 'sunday');
+    expect(emitted.at(-1).week_start).toBe('sunday');
+  });
+
+  it('emits max_completed as a number', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', todo: 'todo.a' }] });
+    ed._setCard('max_completed', 5);
+    expect(emitted.at(-1).max_completed).toBe(5);
+  });
+
+  it('toggles a shared calendar on and off', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', todo: 'todo.a' }] });
+    ed._toggleShared('calendar.family', true);
+    expect(emitted.at(-1).shared_calendars).toEqual(['calendar.family']);
+    ed._toggleShared('calendar.family', false);
+    expect(emitted.at(-1).shared_calendars).toBeUndefined();
+  });
+
+  it('emits a picture and a person entity on a person', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', todo: 'todo.a' }] });
+    ed._setPerson(0, 'picture', '/local/ana.jpg');
+    ed._setPerson(0, 'person', 'person.ana');
+    expect(emitted.at(-1).people[0]).toMatchObject({ picture: '/local/ana.jpg', person: 'person.ana' });
+  });
+
+  it('emits a config normaliseConfig accepts with every new option set', () => {
+    const { ed, emitted } = makeEditor({ people: [{ name: 'Ana', todo: 'todo.a' }] });
+    ed._setCard('week_start', 'today');
+    ed._setCard('max_completed', 0);
+    ed._toggleShared('calendar.family', true);
+    ed._setCard('shared_name', 'Everyone');
+    ed._setPerson(0, 'person', 'person.ana');
+    expect(() => normaliseConfig(emitted.at(-1))).not.toThrow();
+    const cfg = normaliseConfig(emitted.at(-1));
+    expect(cfg.weekStart).toBe('today');
+    expect(cfg.people.at(-1)).toMatchObject({ shared: true, name: 'Everyone' });
+  });
+});

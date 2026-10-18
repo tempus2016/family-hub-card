@@ -1,50 +1,42 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { sharedStyles } from '../styles/shared.js';
+import { sharedStyles, tickStyles } from '../styles/shared.js';
 import { linkChores } from '../data/link-chores.js';
-import { choreProgress } from '../data/chore-progress.js';
+import { tasksOf, progressOf } from '../data/tasks.js';
+import { TickController, renderTick, renderBadge, renderTaskRow } from './tick-controller.js';
+import { t } from '../i18n.js';
+import { formatTime } from '../format.js';
 
-/**
- * One person's chores as a single list the matcher can work on.
- *
- * The three groups agenda renders have two different shapes — to-do chores
- * carry `summary`, TaskMate's completions carry `name` — so each is wrapped
- * with a uniform `summary` and a `ref` back to the original object. Filtering
- * by `ref` identity means the groups can be filtered without ids being unique.
- *
- * Order is the match priority: an outstanding chore claims its event ahead of a
- * completed one of the same name.
- */
-export function choreCandidates(person) {
-  const outstanding = [];
-  const completed = [];
-  for (const c of person.chores || []) {
-    const wrapped = { ref: c, summary: c.summary, kind: 'chore' };
-    if (c.status === 'completed') completed.push(wrapped);
-    else outstanding.push(wrapped);
-  }
-  const today = (person.completedToday || []).map((c) => ({ ref: c, summary: c.name, kind: 'today' }));
-  return [...outstanding, ...completed, ...today];
-}
-
-/** Pairs one person's events with their chores, or nothing when the option is off. */
+/** Pairs one person's events with their tasks, or nothing when the option is off. */
 export function linkPerson(person, inlineChores) {
   if (!inlineChores) {
     return {
       pairs: (person.events || []).map((event) => ({ event, chore: null })),
-      matchedRefs: new Set(),
+      matched: new Set(),
     };
   }
-  const { pairs, matched } = linkChores(person.events, choreCandidates(person));
-  return { pairs, matchedRefs: new Set([...matched].map((w) => w.ref)) };
+  return linkChores(person.events, tasksOf(person));
 }
 
+/**
+ * The merged timeline. An event shared by several people — a family calendar
+ * listed under each of them — arrives once per person with the same id, and
+ * is shown once, naming everyone.
+ */
 export function buildTimeline(people, linkedByPerson = null) {
   const rows = [];
+  const byId = new Map();
   for (const person of people) {
     const pairs = linkedByPerson?.get(person.id)?.pairs
       || (person.events || []).map((event) => ({ event, chore: null }));
     for (const { event, chore } of pairs) {
-      rows.push({ time: event.allDay ? null : event.start, allDay: event.allDay, event, person, chore });
+      const existing = event.id && byId.get(event.id);
+      if (existing && !chore) {
+        existing.people.push(person);
+        continue;
+      }
+      const row = { time: event.allDay ? null : event.start, allDay: event.allDay, event, person, people: [person], chore };
+      rows.push(row);
+      if (event.id && !byId.has(event.id)) byId.set(event.id, row);
     }
   }
   return rows.sort((a, b) => {
@@ -72,15 +64,20 @@ export class FamilyHubAgenda extends LitElement {
   static properties = {
     model: { attribute: false },
     now: { attribute: false },
+    tz: { attribute: false },
+    lang: { attribute: false },
+    locale: { attribute: false },
     confirmWindow: { attribute: false },
     readOnly: { attribute: false },
     inlineChores: { attribute: false },
     hideChores: { attribute: false },
-    _pending: { state: true },
+    isToday: { attribute: false },
+    _expanded: { state: true },
   };
 
   static styles = [
     sharedStyles,
+    tickStyles,
     css`
       /* Metrics ported from mockups/c.html — .split2, .ag, .agrow, .pcard. */
       .wrap { display: grid; grid-template-columns: 1.35fr 1fr; gap: 20px; }
@@ -89,10 +86,17 @@ export class FamilyHubAgenda extends LitElement {
       .ag { background: var(--fh-surface); border-radius: var(--fh-radius-inner); padding: 8px 18px 14px; }
       .agrow { display: flex; gap: 15px; padding: 14px 0; border-bottom: 1px solid var(--fh-rule-soft); align-items: flex-start; }
       .agrow:last-child { border-bottom: none; }
-      .agt { font-family: var(--fh-mono); font-size: 16px; color: var(--fh-text-soft); width: 64px; flex-shrink: 0; padding-top: 2px; font-weight: 500; }
+      .agrow.open { cursor: pointer; }
+      .agt { font-family: var(--fh-mono); font-size: 16px; color: var(--fh-text-soft); width: var(--agt-w, 64px); flex-shrink: 0; padding-top: 2px; font-weight: 500; white-space: nowrap; }
       .agbar { width: 4px; border-radius: 2px; background: var(--pc); align-self: stretch; flex-shrink: 0; }
-      .agn { font-size: 20px; color: var(--fh-text); font-weight: 500; line-height: 1.25; }
+      .agbody { min-width: 0; flex: 1; }
+      .agn { font-size: 20px; color: var(--fh-text); font-weight: 500; line-height: 1.25; display: flex; align-items: flex-start; }
+      .agn .agn-t { min-width: 0; }
+      .agn .tap.inline { margin-top: -10px; }
       .agw { font-size: 14px; color: var(--pc); margin-top: 3px; font-weight: 600; }
+      .agw .also { color: var(--fh-text-mute); font-weight: 500; }
+      .detail { margin-top: 8px; font-size: 14px; color: var(--fh-text-mute); line-height: 1.45; white-space: pre-line; }
+      .detail b { color: var(--fh-text); font-weight: 500; }
       .past { opacity: 0.45; }
       .empty { padding: 14px 0; color: var(--fh-text-dim); font-size: 16px; }
 
@@ -101,35 +105,30 @@ export class FamilyHubAgenda extends LitElement {
 
       .pcard { background: var(--fh-surface); border-radius: var(--fh-radius-inner); padding: 14px 15px; margin-bottom: 11px; border-left: 4px solid var(--pc); }
       .phead { display: flex; align-items: center; gap: 13px; }
-      .av { width: 40px; height: 40px; border-radius: 50%; background: var(--pc); color: var(--fh-bg); font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .av { width: 40px; height: 40px; border-radius: 50%; background: var(--pc); color: var(--fh-bg); font-weight: 700; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; position: relative; }
+      .av img { width: 100%; height: 100%; object-fit: cover; }
+      .av ha-icon { --mdc-icon-size: 24px; }
+      .pcard.alldone .av::after { content: '\\2713'; position: absolute; right: -2px; bottom: -2px; width: 18px; height: 18px; border-radius: 50%; background: var(--fh-surface); color: var(--pc); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 2px var(--pc); }
       .nm { font-weight: 600; font-size: 18px; }
       .nextc { font-size: 14px; color: var(--fh-text-mute); margin-top: 2px; }
+      .pcard.alldone .nextc { color: var(--pc); font-weight: 600; }
+      .streak { font-size: 12px; color: var(--fh-text-mute); margin-top: 2px; }
       .pts { margin-left: auto; text-align: right; padding-left: 10px; }
       .pts b { display: block; font-size: 24px; color: var(--pc); font-family: var(--fh-mono); line-height: 1; }
       .pts span { font-size: 10px; color: var(--fh-text-faint); text-transform: uppercase; letter-spacing: 1px; }
       .pts .today { font-size: 12px; color: var(--fh-text-mute); margin-top: 3px; text-transform: none; letter-spacing: 0; }
 
       .chores { margin-top: 6px; border-top: 1px solid var(--fh-rule-soft); padding-top: 2px; }
-      :host([data-readonly]) .tap { cursor: default; }
-      .chore { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--fh-chore-text); }
-      .chore .name { flex: 1; min-width: 0; }
-      .chore.done .name, .chore.pending .name { text-decoration: line-through; color: var(--fh-text-dim); }
-      .chore.pending .name { font-style: italic; }
-      .box { width: 19px; height: 19px; border-radius: 5px; background: var(--fh-chip); flex-shrink: 0; position: relative; }
-      .box.filled { background: var(--pc); }
-      .box.filled::after { content: '\\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--fh-bg); font-weight: 800; }
-      .tap.inline { display: inline-flex; vertical-align: middle; margin-right: 8px; }
-      .inline-waiting { margin-right: 8px; vertical-align: middle; }
-      .ring { animation: fh-ring var(--fh-window, 3s) linear forwards; }
-      @keyframes fh-ring { from { opacity: 1; } to { opacity: 0.35; } }
-      .waiting { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--warning-color, #FFB84A); font-weight: 600; flex-shrink: 0; }
     `,
   ];
 
   constructor() {
     super();
-    this._pending = new Map();
     this._narrow = false;
+    this.isToday = true;
+    this.lang = 'en';
+    this._expanded = new Set();
+    this.ticks = new TickController(this);
   }
 
   connectedCallback() {
@@ -142,179 +141,137 @@ export class FamilyHubAgenda extends LitElement {
       }
     });
     this._ro.observe(this);
-
-    this._onVisibility = () => {
-      if (document.visibilityState === 'hidden') this.flushPending();
-    };
-    // pagehide can fire while visibilityState is still "visible", so it gets
-    // its own unconditional handler.
-    this._onPageHide = () => this.flushPending();
-    document.addEventListener('visibilitychange', this._onVisibility);
-    window.addEventListener('pagehide', this._onPageHide);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._ro?.disconnect();
-    document.removeEventListener('visibilitychange', this._onVisibility);
-    window.removeEventListener('pagehide', this._onPageHide);
-    // Commit rather than discard: a tablet sleeping inside the undo window
-    // should not silently swallow a chore the child already ticked.
-    this.flushPending();
   }
 
-  /** Fire every queued completion immediately and clear the queue. */
+  /** Kept for callers that flush before navigating away. */
   flushPending() {
-    for (const p of this._pending.values()) {
-      clearTimeout(p.timer);
-      this._fire(p.personId, p.choreId);
-    }
-    this._pending.clear();
-  }
-
-  /**
-   * The undo window is client-side and fires the service call only on expiry.
-   * TaskMate's un-tick is deliberately inert, so an undo that reversed a
-   * completion would work on stock lists and silently fail on TaskMate.
-   */
-  _tap(personId, choreId) {
-    // Ticking only ever applies to today's list, so a paged view must not look
-    // tappable and silently do nothing.
-    if (this.readOnly) return;
-    const key = `${personId}:${choreId}`;
-    const existing = this._pending.get(key);
-    if (existing) {
-      clearTimeout(existing.timer);
-      this._pending.delete(key);
-      this.requestUpdate();
-      return;
-    }
-    if (!this.confirmWindow) {
-      this._fire(personId, choreId);
-      return;
-    }
-    const timer = setTimeout(() => {
-      this._pending.delete(key);
-      this._fire(personId, choreId);
-    }, this.confirmWindow * 1000);
-    this._pending.set(key, { timer, personId, choreId });
-    this.requestUpdate();
-  }
-
-  _fire(personId, choreId) {
-    this.dispatchEvent(
-      new CustomEvent('chore-tap', { detail: { personId, choreId }, bubbles: true, composed: true }),
-    );
-    this.requestUpdate();
+    this.ticks.flush();
   }
 
   _fmt(date) {
-    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+    return formatTime(date, this.locale, this.tz);
+  }
+
+  _toggle(id) {
+    const next = new Set(this._expanded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expanded = next;
   }
 
   render() {
     if (!this.model) return nothing;
+    const lang = this.lang;
     const linked = new Map(
       this.model.people.map((p) => [p.id, linkPerson(p, this.inlineChores)]),
     );
     const timeline = buildTimeline(this.model.people, linked);
-    const nowIdx = nowLineIndex(timeline, this.now);
+    // Paged to another day there is no "now" on screen: a now-line drawn at the
+    // current time of day in tomorrow's list, with the morning dimmed as past,
+    // reads as a broken clock.
+    const nowIdx = this.isToday ? nowLineIndex(timeline, this.now) : -1;
 
     const rows = [];
     timeline.forEach((r, i) => {
       if (i === nowIdx) rows.push(html`<div class="now"></div>`);
+      const past = this.isToday && !r.allDay && r.time < this.now;
+      const open = this._expanded.has(r.event.id);
+      const others = r.people.slice(1);
       rows.push(html`
-        <div class="agrow ${!r.allDay && r.time < this.now ? 'past' : ''}" style="--pc:${r.person.color}">
-          <div class="agt">${r.allDay ? 'All day' : this._fmt(r.time)}</div>
+        <div class="agrow open ${past ? 'past' : ''}" style="--pc:${r.person.color}"
+          @click=${(e) => { if (!e.target.closest('button')) this._toggle(r.event.id); }}>
+          <div class="agt">${r.allDay ? t(lang, 'all_day') : this._fmt(r.time)}</div>
           <div class="agbar"></div>
-          <div>
+          <div class="agbody">
             <div class="agn">
-              ${r.chore ? this._eventBox(r.person, r.chore) : nothing}${r.event.summary}
+              ${r.chore ? this._eventBox(r.person, r.chore) : nothing}<span class="agn-t">${r.event.summary}</span>
             </div>
             <div class="agw">
-              ${r.person.name}${r.event.location ? html` · ${r.event.location}` : nothing}
+              ${r.person.name}${others.length
+                ? html`<span class="also"> · ${others.map((p) => p.name).join(' · ')}</span>`
+                : nothing}${r.event.location ? html` · ${r.event.location}` : nothing}
             </div>
+            ${open ? this._detail(r.event) : nothing}
           </div>
         </div>
       `);
     });
-    if (nowIdx === timeline.length) rows.push(html`<div class="now"></div>`);
+    if (this.isToday && nowIdx === timeline.length) rows.push(html`<div class="now"></div>`);
+
+    const withCards = this.model.people.filter((p) => !p.shared);
+    // "02:00 PM" needs more column than "14:00"; "All day" must not wrap either.
+    const wide = this._fmt(new Date(2000, 0, 1, 22, 0)).length > 5;
 
     return html`
       <div class="wrap" data-narrow=${String(this._narrow)}>
         <div>
-          <div class="sec-l">Today</div>
-          <div class="ag">
-            ${rows.length ? rows : html`<div class="empty">Nothing scheduled</div>`}
+          <div class="sec-l">${t(lang, 'today')}</div>
+          <div class="ag" style="--agt-w:${wide ? '84px' : '64px'}">
+            ${rows.length ? rows : html`<div class="empty">${t(lang, 'nothing_scheduled')}</div>`}
           </div>
         </div>
         <div>
-          <div class="sec-l">Chores &amp; points</div>
-          ${this.model.people.map((p) => this._person(p, linked.get(p.id)))}
+          <div class="sec-l">${t(lang, 'chores_points')}</div>
+          ${withCards.map((p) => this._person(p, linked.get(p.id)))}
         </div>
       </div>
     `;
   }
 
+  /** The expanded panel under an event: time range, location, description. */
+  _detail(event) {
+    const range = event.allDay
+      ? t(this.lang, 'all_day')
+      : `${this._fmt(event.start)}${event.end && +event.end !== +event.start ? ` – ${this._fmt(event.end)}` : ''}`;
+    return html`
+      <div class="detail">
+        <b>${range}</b>${event.location ? html` · ${event.location}` : nothing}
+        ${event.description ? html`<div>${event.description}</div>` : nothing}
+      </div>
+    `;
+  }
+
+  _avatar(p) {
+    if (p.picture) return html`<div class="av"><img src=${p.picture} alt="" /></div>`;
+    if (p.icon) return html`<div class="av"><ha-icon icon=${p.icon}></ha-icon></div>`;
+    return html`<div class="av">${p.initials}</div>`;
+  }
+
   _person(p, link) {
-    const matched = link?.matchedRefs || new Set();
-
-    // With the Tasks tab showing, the chores live there — the person card keeps
-    // only their name, summary line and points.
-    if (this.hideChores) {
-      return html`
-        <div class="pcard" style="--pc:${p.color}">
-          <div class="phead">
-            <div class="av">${p.initials}</div>
-            <div>
-              <div class="nm">${p.name}</div>
-              <div class="nextc">${this._summary(p, (p.chores || []).filter((c) => c.status !== 'completed'))}</div>
-            </div>
-            ${this._points(p)}
-          </div>
-        </div>
-      `;
-    }
-
-    const outstanding = (p.chores || []).filter((c) => c.status !== 'completed');
-    const done = (p.chores || []).filter((c) => c.status === 'completed');
-    const doneToday = p.completedToday || [];
+    const matched = link?.matched || new Set();
+    const tasks = tasksOf(p);
+    const outstanding = tasks.filter((c) => !c.done);
+    const progress = progressOf(p);
+    const allDone = Boolean(p.todo) && progress.total > 0 && progress.done === progress.total;
 
     // Anything whose box moved onto the timeline drops out of the list here.
     // `outstanding` stays unfiltered for the "Next: X" line below, which still
     // names the chore even when its box lives on the timeline.
-    const restOutstanding = outstanding.filter((c) => !matched.has(c));
-    const restDone = done.filter((c) => !matched.has(c));
-    const restToday = doneToday.filter((c) => !matched.has(c));
-    const hasRows = restOutstanding.length || restDone.length || restToday.length;
+    const rest = this.hideChores ? [] : tasks.filter((c) => !matched.has(c));
 
     return html`
-      <div class="pcard" style="--pc:${p.color}">
+      <div class="pcard ${allDone ? 'alldone' : ''}" style="--pc:${p.color}">
         <div class="phead">
-          <div class="av">${p.initials}</div>
+          ${this._avatar(p)}
           <div>
             <div class="nm">${p.name}</div>
             <div class="nextc">${this._summary(p, outstanding)}</div>
+            ${p.points?.streak > 1
+              ? html`<div class="streak">🔥 ${t(this.lang, 'streak', { n: p.points.streak })}</div>`
+              : nothing}
           </div>
           ${this._points(p)}
         </div>
         ${(p.failures || []).length
-          ? html`<div class="notice">Can't read ${p.failures.join(', ')}</div>`
+          ? html`<div class="notice">${t(this.lang, 'cant_read', { entities: p.failures.join(', ') })}</div>`
           : nothing}
-        ${hasRows
-          ? html`<div class="chores">
-              ${restOutstanding.map((c) => this._chore(p, c, 'open'))}
-              ${restDone.map((c) => this._chore(p, c, 'done'))}
-              ${restToday.map(
-                (c) => html`
-                  <div class="chore ${c.approved ? 'done' : 'pending'}">
-                    <span class="tap"><span class="box filled"></span></span>
-                    <span class="name">${c.name}</span>
-                    ${c.approved ? nothing : html`<span class="waiting">waiting</span>`}
-                  </div>
-                `,
-              )}
-            </div>`
+        ${rest.length
+          ? html`<div class="chores">${rest.map((c) => renderTaskRow(this.ticks, p, c))}</div>`
           : nothing}
       </div>
     `;
@@ -329,13 +286,14 @@ export class FamilyHubAgenda extends LitElement {
    * would read "All done" over someone who has done nothing.
    */
   _summary(p, outstanding) {
-    if (!p.todo) return 'No chore list';
+    const lang = this.lang || 'en';
+    if (!p.todo) return t(lang, 'no_chore_list');
     if (this.inlineChores) {
-      const { done, total } = choreProgress(p);
-      return total ? `${done}/${total} done` : 'All done';
+      const { done, total } = progressOf(p);
+      return total ? t(lang, 'done_of', { done, total }) : t(lang, 'all_done');
     }
-    if (!outstanding.length) return 'All done';
-    return `Next: ${outstanding[0].summary}`;
+    if (!outstanding.length) return t(lang, 'all_done');
+    return t(lang, 'next', { chore: outstanding[0].summary });
   }
 
   _points(p) {
@@ -355,58 +313,9 @@ export class FamilyHubAgenda extends LitElement {
     `;
   }
 
-  /**
-   * The tick box on a timeline row that carries a chore. A TaskMate-only
-   * completion has no to-do item behind it, so it renders as a static filled
-   * box rather than a button — there is nothing left to update.
-   */
-  _eventBox(p, c) {
-    if (c.kind === 'today' || c.ref.status === 'completed') {
-      // A TaskMate completion carries `approved`; a plain to-do item does not,
-      // so only the former can ever be awaiting approval.
-      const waiting = c.kind === 'today' && !c.ref.approved;
-      return html`<span class="tap inline"><span class="box filled"></span></span>${
-        waiting ? html`<span class="waiting inline-waiting">waiting</span>` : nothing
-      }`;
-    }
-    const key = `${p.id}:${c.ref.id}`;
-    const pending = this._pending.has(key);
-    return html`
-      <button
-        class="tap inline"
-        role="checkbox"
-        aria-checked=${pending ? 'true' : 'false'}
-        aria-label=${`Complete ${c.summary} for ${p.name}`}
-        @click=${() => this._tap(p.id, c.ref.id)}
-        ?disabled=${this.readOnly}
-      >
-        <span class="box ${pending ? 'filled' : ''} ${pending ? 'ring' : ''}"
-          style="--fh-window:${this.confirmWindow}s"></span>
-      </button>
-    `;
-  }
-
-  _chore(p, c, kind) {
-    const key = `${p.id}:${c.id}`;
-    const pending = this._pending.has(key);
-    return html`
-      <div class="chore ${kind === 'done' ? 'done' : ''}">
-        <button
-          class="tap"
-          role="checkbox"
-          aria-checked=${kind === 'done' || pending ? 'true' : 'false'}
-          aria-label=${`Complete ${c.summary} for ${p.name}`}
-          @click=${() => this._tap(p.id, c.id)}
-          ?disabled=${kind === 'done' || this.readOnly}
-        >
-          <span
-            class="box ${pending || kind === 'done' ? 'filled' : ''} ${pending ? 'ring' : ''}"
-            style="--fh-window:${this.confirmWindow}s"
-          ></span>
-        </button>
-        <span class="name">${c.summary}</span>
-      </div>
-    `;
+  /** The tick box on a timeline row that carries a chore. */
+  _eventBox(p, task) {
+    return html`${renderTick(this.ticks, p, task, { inline: true })}${renderBadge(this.lang, task, { inline: true })}`;
   }
 }
 

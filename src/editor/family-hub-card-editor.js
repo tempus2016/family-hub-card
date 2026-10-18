@@ -69,7 +69,10 @@ export class FamilyHubCardEditor extends LitElement {
    */
   async _probe() {
     if (!this.hass) return;
-    const ids = [...new Set((this._config?.people || []).flatMap((p) => p.calendars || []))];
+    const ids = [...new Set([
+      ...(this._config?.people || []).flatMap((p) => p.calendars || []),
+      ...[].concat(this._config?.shared_calendars || []),
+    ])];
     const unknown = ids.filter((id) => !this._calInfo[id]);
     if (!unknown.length) return;
     const found = await probeCalendars(
@@ -160,6 +163,14 @@ export class FamilyHubCardEditor extends LitElement {
     this._probe();
   }
 
+  /** Add or remove a shared (whole-family) calendar. */
+  _toggleShared(id, on) {
+    const current = [].concat(this._config.shared_calendars || []);
+    const next = on ? [...current, id] : current.filter((x) => x !== id);
+    this._setCard('shared_calendars', next.length ? next : null);
+    this._probe();
+  }
+
   _addPerson() {
     const people = [...(this._config.people || [])];
     people.push({ name: '', color: PALETTE[people.length % PALETTE.length] });
@@ -241,13 +252,20 @@ export class FamilyHubCardEditor extends LitElement {
             )}
           </select>
         </label>
+        <label>Week starts
+          <select @change=${(e) => this._setCard('week_start', e.target.value === 'monday' ? '' : e.target.value)}>
+            ${['monday', 'sunday', 'today'].map(
+              (v) => html`<option value=${v} ?selected=${(c.week_start || 'monday') === v}>${v}</option>`,
+            )}
+          </select>
+        </label>
         <label>Tick chores on their event
-          <input type="checkbox" .checked=${Boolean(c.inline_chores)}
-            @change=${(e) => this._setCard('inline_chores', e.target.checked)} />
+          <input type="checkbox" .checked=${c.inline_chores !== false && !c.tabs}
+            ?disabled=${Boolean(c.tabs)}
+            @change=${(e) => this._setCard('inline_chores', e.target.checked ? '' : false)} />
         </label>
         <label>Calendar / Tasks tabs
           <input type="checkbox" .checked=${Boolean(c.tabs)}
-            ?disabled=${Boolean(c.inline_chores)}
             @change=${(e) => this._setCard('tabs', e.target.checked)} />
         </label>
       </div>
@@ -265,6 +283,10 @@ export class FamilyHubCardEditor extends LitElement {
           <input type="number" min="0" .value=${String(c.return_to_today ?? 120)}
             @change=${(e) => this._setCard('return_to_today', Number(e.target.value))} />
         </label>
+        <label>Completed items shown
+          <input type="number" min="0" .value=${String(c.max_completed ?? 3)}
+            @change=${(e) => this._setCard('max_completed', Number(e.target.value))} />
+        </label>
       </div>
 
       <div class="group row">
@@ -274,6 +296,26 @@ export class FamilyHubCardEditor extends LitElement {
           (v) => this._setCard('taskmate_chores', v))}
       </div>
       ${this._choresSuggestion(c)}
+
+      <h3>Shared calendars</h3>
+      <div class="muted" style="margin-bottom:6px">
+        Events for the whole family, shown once in a neutral colour rather than under each person.
+      </div>
+      <div class="cals">
+        ${this._entities('calendar.').map((id) => this._sharedRow(id, [].concat(c.shared_calendars || []).includes(id)))}
+      </div>
+      ${[].concat(c.shared_calendars || []).length
+        ? html`<div class="row" style="margin-top:8px">
+            <label>Shown as
+              <input type="text" .value=${c.shared_name || ''} placeholder="Family"
+                @input=${(e) => this._setCard('shared_name', e.target.value)} />
+            </label>
+            <label style="flex:0 0 70px">Colour
+              <input type="color" .value=${c.shared_color || '#9AA3B8'}
+                @change=${(e) => this._setCard('shared_color', e.target.value)} />
+            </label>
+          </div>`
+        : nothing}
 
       <h3>People</h3>
       ${errs.card ? html`<div class="err">${errs.card}</div>` : nothing}
@@ -317,6 +359,24 @@ export class FamilyHubCardEditor extends LitElement {
       <button @click=${() => this._detect()}>Detect people</button>
       <span class="muted"> — finds TaskMate children and wires their entities</span>
     </div>`;
+  }
+
+  _sharedRow(id, checked) {
+    const info = checked ? this._calInfo?.[id] : null;
+    return html`
+      <div class="cal">
+        <input type="checkbox" id=${`shared-${id}`} .checked=${checked}
+          @change=${(e) => this._toggleShared(id, e.target.checked)} />
+        <label class="name" for=${`shared-${id}`} style="margin:0">
+          ${this.hass?.states?.[id]?.attributes?.friendly_name || id}
+        </label>
+        ${info?.error
+          ? html`<span class="flag bad">unreadable</span>`
+          : info && info.count === 0
+            ? html`<span class="flag">no events this week</span>`
+            : nothing}
+      </div>
+    `;
   }
 
   _calRow(personIndex, id, checked) {
@@ -364,6 +424,14 @@ export class FamilyHubCardEditor extends LitElement {
             (v) => this._setPerson(i, 'todo', v))}
           ${this._select('Points sensor', p.points, this._entities('sensor.'),
             (v) => this._setPerson(i, 'points', v))}
+        </div>
+        <div class="row">
+          ${this._select('Person entity (for the photo)', p.person, this._entities('person.'),
+            (v) => this._setPerson(i, 'person', v))}
+          <label>Picture URL
+            <input type="text" .value=${p.picture || ''} placeholder="/local/ana.jpg"
+              @input=${(e) => this._setPerson(i, 'picture', e.target.value)} />
+          </label>
         </div>
         <label>Calendars</label>
         <div class="cals">

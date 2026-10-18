@@ -21,6 +21,11 @@ export function readPoints(hass, person) {
     earnedToday: a.points_earned_today ?? null,
     pendingToday: a.points_pending_today ?? null,
     childId: a.child_id ?? null,
+    streak: Number(a.current_streak) || 0,
+    // TaskMate's avatar is an mdi icon name; avatar_image is the child's photo
+    // when one has been uploaded, else an empty string.
+    avatarIcon: a.avatar || null,
+    avatarImage: a.avatar_image || null,
   };
 }
 

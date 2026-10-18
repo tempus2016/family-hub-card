@@ -36,6 +36,7 @@
     "@rollup/plugin-terser": "^1.0.0",
     "eslint": "^10.8.0",
     "globals": "^17.8.0",
+    "happy-dom": "^21.0.3",
     "rollup": "^4.9.0",
     "vitest": "^4.1.10"
   }

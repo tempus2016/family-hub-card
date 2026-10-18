@@ -77,3 +77,14 @@ describe('completeChore', () => {
     ]);
   });
 });
+
+describe('due time flag', () => {
+  it('marks a datetime due as carrying a time and a date-only due as not', () => {
+    const items = [
+      { uid: '1', summary: 'Timed', status: 'needs_action', due: '2026-08-10T15:00:00+01:00' },
+      { uid: '2', summary: 'Dated', status: 'needs_action', due: '2026-08-10' },
+    ];
+    const out = filterChores(items, 'all', new Date('2026-08-10T10:00:00Z'), 'Europe/London');
+    expect(out.map((c) => c.dueHasTime)).toEqual([true, false]);
+  });
+});

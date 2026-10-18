@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  buildTimeline, nowLineIndex, FamilyHubAgenda, choreCandidates, linkPerson,
+  buildTimeline, nowLineIndex, FamilyHubAgenda, linkPerson,
 } from '../src/views/agenda-view.js';
 
 const ana = { id: 'ana', name: 'Ana', color: '#4A9EFF' };
@@ -71,43 +71,43 @@ describe('undo window', () => {
 
   it('does not fire the completion while the window is open', () => {
     const { view, fired } = makeView();
-    view._tap('ana', 'c1');
+    view.ticks.tap('ana', 'c1');
     expect(fired).toEqual([]);
-    expect(view._pending.size).toBe(1);
+    expect(view.ticks.pending.size).toBe(1);
   });
 
   it('cancels the completion when tapped again inside the window', () => {
     const { view, fired } = makeView();
-    view._tap('ana', 'c1');
-    view._tap('ana', 'c1');
+    view.ticks.tap('ana', 'c1');
+    view.ticks.tap('ana', 'c1');
     expect(fired).toEqual([]);
-    expect(view._pending.size).toBe(0);
+    expect(view.ticks.pending.size).toBe(0);
   });
 
   it('fires immediately when confirmWindow is 0', () => {
     const { view, fired } = makeView(0);
-    view._tap('ana', 'c1');
+    view.ticks.tap('ana', 'c1');
     expect(fired).toEqual([{ personId: 'ana', choreId: 'c1' }]);
   });
 
   it('flushes queued completions rather than dropping them', () => {
     const { view, fired } = makeView();
-    view._tap('ana', 'c1');
-    view._tap('ben', 'c2');
-    view.flushPending();
+    view.ticks.tap('ana', 'c1');
+    view.ticks.tap('ben', 'c2');
+    view.ticks.flush();
     expect(fired).toEqual([
       { personId: 'ana', choreId: 'c1' },
       { personId: 'ben', choreId: 'c2' },
     ]);
-    expect(view._pending.size).toBe(0);
+    expect(view.ticks.pending.size).toBe(0);
   });
 
   it('fires the completion when the window expires', async () => {
     const { view, fired } = makeView(0.05);
-    view._tap('ana', 'c1');
+    view.ticks.tap('ana', 'c1');
     await new Promise((r) => setTimeout(r, 120));
     expect(fired).toEqual([{ personId: 'ana', choreId: 'c1' }]);
-    expect(view._pending.size).toBe(0);
+    expect(view.ticks.pending.size).toBe(0);
   });
 });
 
@@ -124,15 +124,15 @@ describe('read-only paging', () => {
 
   it('ignores taps when paged away from today', () => {
     const { view, fired } = makeView(true);
-    view._tap('ana', 'c1');
+    view.ticks.tap('ana', 'c1');
     expect(fired).toEqual([]);
-    expect(view._pending.size).toBe(0);
+    expect(view.ticks.pending.size).toBe(0);
   });
 
   it('still accepts taps on today', () => {
     const { view } = makeView(false);
-    view._tap('ana', 'c1');
-    expect(view._pending.size).toBe(1);
+    view.ticks.tap('ana', 'c1');
+    expect(view.ticks.pending.size).toBe(1);
   });
 });
 
@@ -142,58 +142,38 @@ const withChores = (over = {}) => ({
   ...over,
 });
 
-describe('choreCandidates', () => {
-  it('orders outstanding, then completed, then TaskMate completions', () => {
-    const p = withChores({
-      chores: [
-        { id: 'd', summary: 'Done one', status: 'completed' },
-        { id: 'o', summary: 'Open one', status: 'needs_action' },
-      ],
-      completedToday: [{ choreId: 't', name: 'TaskMate one', approved: true }],
-    });
-    expect(choreCandidates(p).map((c) => c.summary)).toEqual(['Open one', 'Done one', 'TaskMate one']);
-    expect(choreCandidates(p).map((c) => c.kind)).toEqual(['chore', 'chore', 'today']);
-  });
-
-  it('points ref at the original object', () => {
-    const chore = { id: 'o', summary: 'Open one', status: 'needs_action' };
-    const p = withChores({ chores: [chore] });
-    expect(choreCandidates(p)[0].ref).toBe(chore);
-  });
-});
-
 describe('linkPerson', () => {
   it('matches nothing when inlineChores is off', () => {
     const chore = { id: '1', summary: 'Make bed', status: 'needs_action' };
     const p = withChores({ events: [{ id: 'e1', summary: 'Make bed' }], chores: [chore] });
-    const { pairs, matchedRefs } = linkPerson(p, false);
+    const { pairs, matched } = linkPerson(p, false);
     expect(pairs[0].chore).toBe(null);
-    expect(matchedRefs.size).toBe(0);
+    expect(matched.size).toBe(0);
   });
 
-  it('matches an event to a chore and reports the original ref', () => {
+  it('matches an event to a task and reports it as matched', () => {
     const chore = { id: '1', summary: 'Make bed', status: 'needs_action' };
     const p = withChores({ events: [{ id: 'e1', summary: 'Make bed' }], chores: [chore] });
-    const { pairs, matchedRefs } = linkPerson(p, true);
-    expect(pairs[0].chore.ref).toBe(chore);
-    expect(matchedRefs.has(chore)).toBe(true);
+    const { pairs, matched } = linkPerson(p, true);
+    expect(pairs[0].chore.id).toBe('1');
+    expect(matched.has(pairs[0].chore)).toBe(true);
   });
 
-  it('reports a TaskMate completion ref by its name', () => {
+  it('matches a TaskMate completion by its name', () => {
     const done = { choreId: 'c1', name: 'Make bed', approved: false };
     const p = withChores({ events: [{ id: 'e1', summary: 'Make bed' }], completedToday: [done] });
-    const { pairs, matchedRefs } = linkPerson(p, true);
-    expect(pairs[0].chore.kind).toBe('today');
-    expect(matchedRefs.has(done)).toBe(true);
+    const { pairs } = linkPerson(p, true);
+    expect(pairs[0].chore.kind).toBe('completion');
+    expect(pairs[0].chore.pending).toBe(true);
   });
 
-  it('leaves an unmatched chore out of matchedRefs', () => {
+  it('leaves an unmatched task out of matched', () => {
     const a = { id: '1', summary: 'Make bed', status: 'needs_action' };
     const b = { id: '2', summary: 'Tidy bedroom', status: 'needs_action' };
     const p = withChores({ events: [{ id: 'e1', summary: 'Make bed' }], chores: [a, b] });
-    const { matchedRefs } = linkPerson(p, true);
-    expect(matchedRefs.has(a)).toBe(true);
-    expect(matchedRefs.has(b)).toBe(false);
+    const { pairs, matched } = linkPerson(p, true);
+    expect(matched.has(pairs[0].chore)).toBe(true);
+    expect(matched.size).toBe(1);
   });
 });
 
@@ -206,7 +186,7 @@ describe('buildTimeline with links', () => {
     });
     const linked = new Map([[p.id, linkPerson(p, true)]]);
     const rows = buildTimeline([p], linked);
-    expect(rows[0].chore.ref).toBe(chore);
+    expect(rows[0].chore.id).toBe(chore.id);
   });
 
   it('leaves rows unlinked when no map is supplied', () => {

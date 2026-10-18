@@ -1,6 +1,10 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { sharedStyles } from '../styles/shared.js';
+import { sharedStyles, tickStyles } from '../styles/shared.js';
 import { linkChores } from '../data/link-chores.js';
+import { tasksOf } from '../data/tasks.js';
+import { TickController, renderTick, renderBadge, renderTaskRow } from './tick-controller.js';
+import { t } from '../i18n.js';
+import { formatTime } from '../format.js';
 
 /**
  * One column per person: their day, then their chores. The Skylight layout the
@@ -8,64 +12,25 @@ import { linkChores } from '../data/link-chores.js';
  */
 
 /** The time label for an event — a range when there is one, a start otherwise. */
-export function eventTime(event, tz) {
-  if (event.allDay) return 'All day';
-  const fmt = new Intl.DateTimeFormat(undefined, {
-    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz,
-  });
-  const start = fmt.format(event.start);
+export function eventTime(event, tz, locale = { time_format: '24' }) {
+  if (event.allDay) return t(locale?.language?.split('-')[0] || 'en', 'all_day');
+  const start = formatTime(event.start, locale, tz);
   if (!event.end || +event.end === +event.start) return start;
-  return `${start} – ${fmt.format(event.end)}`;
+  return `${start} – ${formatTime(event.end, locale, tz)}`;
 }
 
 /**
- * One person's column.
- *
- * Chores come from two sources that overlap: the todo list, and TaskMate's
- * record of what was completed today. TaskMate drops a chore from the list the
- * moment it is ticked, so its completions have to be appended — but a stock
- * list keeps completed items, so the same chore can appear in both. Merge on
- * name to avoid showing it twice.
- *
- * A completion that only exists in TaskMate's record has no todo item behind
- * it, so it cannot be tapped — there is nothing left to update.
+ * One person's column. The task list is the model's merged one; this decides
+ * which of those tasks sit on an event row and which remain in the list.
  */
 export function columnFor(person, inlineChores = false, hideChores = false) {
-  const chores = [];
-  const seen = new Set();
+  const tasks = tasksOf(person);
 
-  for (const c of person.chores || []) {
-    seen.add(c.summary);
-    chores.push({
-      id: c.id,
-      summary: c.summary,
-      done: c.status === 'completed',
-      pending: false,
-      tappable: c.status !== 'completed',
-    });
-  }
-
-  for (const c of person.completedToday || []) {
-    if (seen.has(c.name)) continue;
-    seen.add(c.name);
-    chores.push({
-      id: c.choreId,
-      summary: c.name,
-      done: true,
-      pending: !c.approved,
-      tappable: false,
-    });
-  }
-
-  chores.sort((a, b) => Number(a.done) - Number(b.done));
-
-  // The sort is stable, so `chores` is already in the priority the matcher
-  // needs: outstanding first, then completed, then TaskMate-only completions.
   const { pairs, matched } = inlineChores
-    ? linkChores(person.events, chores)
+    ? linkChores(person.events, tasks)
     : { pairs: (person.events || []).map((event) => ({ event, chore: null })), matched: new Set() };
 
-  const remaining = inlineChores ? chores.filter((c) => !matched.has(c)) : chores;
+  const remaining = inlineChores ? tasks.filter((c) => !matched.has(c)) : tasks;
 
   // With the Tasks tab showing, the chores live there instead; rendering them
   // here too would put every chore on screen twice.
@@ -91,49 +56,52 @@ export class FamilyHubColumns extends LitElement {
   static properties = {
     model: { attribute: false },
     tz: { attribute: false },
+    lang: { attribute: false },
+    locale: { attribute: false },
     readOnly: { attribute: false },
     confirmWindow: { attribute: false },
     inlineChores: { attribute: false },
     hideChores: { attribute: false },
-    _pending: { state: true },
+    _expanded: { state: true },
   };
 
   static styles = [
     sharedStyles,
+    tickStyles,
     css`
       /* Metrics ported from mockups/a.html — .cols, .col, .ev, .chore. */
-      .cols { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 15px; }
+      /* align-items: start lets a person with nothing on sit short instead of
+         stretching an empty column to the tallest one. */
+      .cols { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 15px; align-items: start; }
       .col { background: var(--fh-surface); border-radius: var(--fh-radius-inner); padding: 15px; border-top: 3px solid var(--pc); min-width: 0; }
       .who { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
-      .av { width: 38px; height: 38px; border-radius: 50%; background: var(--pc); color: var(--fh-bg); font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .av { width: 38px; height: 38px; border-radius: 50%; background: var(--pc); color: var(--fh-bg); font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; position: relative; }
+      .av img { width: 100%; height: 100%; object-fit: cover; }
+      .av ha-icon { --mdc-icon-size: 22px; }
+      .col.alldone .av::after { content: '\\2713'; position: absolute; right: -2px; bottom: -2px; width: 16px; height: 16px; border-radius: 50%; background: var(--fh-surface); color: var(--pc); font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 2px var(--pc); }
       .nm { font-weight: 600; font-size: 19px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .pts { margin-left: auto; font-family: var(--fh-mono); font-size: 16px; color: var(--pc); flex-shrink: 0; }
+      .pts { margin-left: auto; font-family: var(--fh-mono); font-size: 16px; color: var(--pc); flex-shrink: 0; text-align: right; line-height: 1.1; }
+      .pts span { display: block; font-size: 10px; color: var(--fh-text-faint); text-transform: uppercase; letter-spacing: 1px; font-family: var(--fh-font); }
 
-      .ev { padding: 9px 0; }
+      .ev { padding: 9px 0; cursor: pointer; }
       .ev-t { font-size: 13px; color: var(--pc); font-weight: 600; font-family: var(--fh-mono); letter-spacing: 0.3px; }
-      .ev-n { font-size: 17px; color: var(--fh-chore-text); margin-top: 2px; line-height: 1.3; }
+      .ev-n { font-size: 17px; color: var(--fh-chore-text); margin-top: 2px; line-height: 1.3; display: flex; align-items: flex-start; }
+      .ev-n .ev-t2 { min-width: 0; }
+      .ev-n .tap.inline { margin-top: -11px; }
+      .detail { margin-top: 6px; font-size: 13px; color: var(--fh-text-mute); line-height: 1.45; white-space: pre-line; }
       .none { font-size: 15px; color: var(--fh-text-dim); padding: 9px 0; }
 
       .divider { font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--fh-text-dim); margin: 15px 0 9px; font-weight: 600; }
-      .chore { display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--fh-chore-text); }
-      .chore .name { flex: 1; min-width: 0; }
-      .chore.done .name { text-decoration: line-through; color: var(--fh-text-dim); }
-      .chore.pending .name { font-style: italic; }
-      .box { width: 19px; height: 19px; border-radius: 5px; background: var(--fh-chip); flex-shrink: 0; position: relative; }
-      .box.done { background: var(--pc); }
-      .box.done::after { content: '\\2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--fh-bg); font-weight: 800; }
-      .tap.inline { display: inline-flex; vertical-align: middle; margin-right: 8px; }
-      .inline-waiting { margin-right: 8px; vertical-align: middle; }
-      .ring { animation: fh-ring var(--fh-window, 3s) linear forwards; }
-      @keyframes fh-ring { from { opacity: 1; } to { opacity: 0.35; } }
-      .waiting { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--warning-color, #FFB84A); font-weight: 600; flex-shrink: 0; }
+      .col.alldone .divider { color: var(--pc); }
     `,
   ];
 
   constructor() {
     super();
-    this._pending = new Map();
     this._cols = 4;
+    this.lang = 'en';
+    this._expanded = new Set();
+    this.ticks = new TickController(this);
   }
 
   connectedCallback() {
@@ -149,53 +117,22 @@ export class FamilyHubColumns extends LitElement {
       }
     });
     this._ro.observe(this);
-    this._onPageHide = () => this.flushPending();
-    window.addEventListener('pagehide', this._onPageHide);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._ro?.disconnect();
-    window.removeEventListener('pagehide', this._onPageHide);
-    this.flushPending();
   }
 
-  /** Commit queued completions rather than discarding them. */
   flushPending() {
-    for (const p of this._pending.values()) {
-      clearTimeout(p.timer);
-      this._fire(p.personId, p.choreId);
-    }
-    this._pending.clear();
+    this.ticks.flush();
   }
 
-  _tap(personId, choreId) {
-    if (this.readOnly) return;
-    const key = `${personId}:${choreId}`;
-    const existing = this._pending.get(key);
-    if (existing) {
-      clearTimeout(existing.timer);
-      this._pending.delete(key);
-      this.requestUpdate();
-      return;
-    }
-    if (!this.confirmWindow) {
-      this._fire(personId, choreId);
-      return;
-    }
-    const timer = setTimeout(() => {
-      this._pending.delete(key);
-      this._fire(personId, choreId);
-    }, this.confirmWindow * 1000);
-    this._pending.set(key, { timer, personId, choreId });
-    this.requestUpdate();
-  }
-
-  _fire(personId, choreId) {
-    this.dispatchEvent(
-      new CustomEvent('chore-tap', { detail: { personId, choreId }, bubbles: true, composed: true }),
-    );
-    this.requestUpdate();
+  _toggle(id) {
+    const next = new Set(this._expanded);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expanded = next;
   }
 
   render() {
@@ -208,107 +145,63 @@ export class FamilyHubColumns extends LitElement {
     `;
   }
 
+  _avatar(p) {
+    if (p.picture) return html`<div class="av"><img src=${p.picture} alt="" /></div>`;
+    if (p.icon) return html`<div class="av"><ha-icon icon=${p.icon}></ha-icon></div>`;
+    return html`<div class="av">${p.initials}</div>`;
+  }
+
   _column(col, tz) {
     const p = col.person;
+    const lang = this.lang;
+    const progress = p.progress;
+    const allDone = Boolean(p.todo) && progress && progress.total > 0 && progress.done === progress.total;
     return html`
-      <div class="col" style="--pc:${p.color}">
+      <div class="col ${allDone ? 'alldone' : ''}" style="--pc:${p.color}">
         <div class="who">
-          <div class="av">${p.initials}</div>
+          ${this._avatar(p)}
           <div class="nm">${p.name}</div>
           ${p.points && p.points.balance != null
-            ? html`<div class="pts">${p.points.balance}</div>`
+            ? html`<div class="pts">${p.points.balance}<span>${p.points.unit}</span></div>`
             : nothing}
         </div>
 
         ${(p.failures || []).length
-          ? html`<div class="notice">Can't read ${p.failures.join(', ')}</div>`
+          ? html`<div class="notice">${t(lang, 'cant_read', { entities: p.failures.join(', ') })}</div>`
           : nothing}
 
         ${col.events.length
           ? col.events.map(
-              ({ event, chore }) => html`<div class="ev">
-                <div class="ev-t">${eventTime(event, tz)}</div>
+              ({ event, chore }) => html`<div class="ev"
+                @click=${(e) => { if (!e.target.closest('button')) this._toggle(event.id); }}>
+                <div class="ev-t">${eventTime(event, tz, this.locale)}</div>
                 <div class="ev-n">
-                  ${chore ? this._eventBox(p, chore) : nothing}${event.summary}
+                  ${chore ? this._eventBox(p, chore) : nothing}<span class="ev-t2">${event.summary}</span>
                 </div>
+                ${this._expanded.has(event.id) && (event.location || event.description)
+                  ? html`<div class="detail">${event.location
+                      ? html`<div>${event.location}</div>` : nothing}${event.description
+                      ? html`<div>${event.description}</div>` : nothing}</div>`
+                  : nothing}
               </div>`,
             )
-          : html`<div class="none">Nothing on</div>`}
+          : html`<div class="none">${t(lang, 'nothing_on')}</div>`}
 
         ${col.hasChores
           ? html`
               <div class="divider">
-                Chores${col.outstanding ? ` · ${col.outstanding} to do` : ' · all done'}
+                ${t(lang, 'chores')} · ${col.outstanding ? t(lang, 'to_do', { n: col.outstanding }) : t(lang, 'all_done')}
               </div>
-              ${col.chores.map((c) => this._chore(p, c))}
+              ${col.chores.map((c) => renderTaskRow(this.ticks, p, c))}
             `
           : nothing}
       </div>
     `;
   }
 
-  /**
-   * The tick box shown on a calendar event that carries a chore. Deliberately
-   * reuses `_tap`, so the undo window, the pending ring and the read-only rule
-   * behave exactly as they do in the chores list below.
-   */
-  _eventBox(p, c) {
-    const key = `${p.id}:${c.id}`;
-    const pending = this._pending.has(key);
-    const done = c.done || pending;
-
-    if (!c.tappable) {
-      return html`<span class="tap inline"><span class="box done"></span></span>${
-        c.pending ? html`<span class="waiting inline-waiting">waiting</span>` : nothing
-      }`;
-    }
-
-    return html`
-      <button
-        class="tap inline"
-        role="checkbox"
-        aria-checked=${done ? 'true' : 'false'}
-        aria-label=${`Complete ${c.summary} for ${p.name}`}
-        @click=${() => this._tap(p.id, c.id)}
-        ?disabled=${this.readOnly}
-      >
-        <span class="box ${done ? 'done' : ''} ${pending ? 'ring' : ''}"
-          style="--fh-window:${this.confirmWindow}s"></span>
-      </button>
-    `;
-  }
-
-  _chore(p, c) {
-    const key = `${p.id}:${c.id}`;
-    const pending = this._pending.has(key);
-    const done = c.done || pending;
-
-    if (!c.tappable) {
-      return html`
-        <div class="chore ${done ? 'done' : ''} ${c.pending ? 'pending' : ''}">
-          <span class="tap"><span class="box done"></span></span>
-          <span class="name">${c.summary}</span>
-          ${c.pending ? html`<span class="waiting">waiting</span>` : nothing}
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="chore ${done ? 'done' : ''}">
-        <button
-          class="tap"
-          role="checkbox"
-          aria-checked=${done ? 'true' : 'false'}
-          aria-label=${`Complete ${c.summary} for ${p.name}`}
-          @click=${() => this._tap(p.id, c.id)}
-          ?disabled=${this.readOnly}
-        >
-          <span class="box ${done ? 'done' : ''} ${pending ? 'ring' : ''}"
-            style="--fh-window:${this.confirmWindow}s"></span>
-        </button>
-        <span class="name">${c.summary}</span>
-      </div>
-    `;
+  /** The tick box shown on a calendar event that carries a chore. */
+  _eventBox(p, task) {
+    return html`${renderTick(this.ticks, p, task, { inline: true })}${renderBadge(this.lang, task, { inline: true })}`;
   }
 }
 

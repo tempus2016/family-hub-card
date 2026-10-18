@@ -408,3 +408,128 @@ describe('HubData.complete', () => {
     expect(hub.model.failures).toContain('todo.ana');
   });
 });
+
+describe('partial refresh on entity change', () => {
+  const twoSources = {
+    people: [{ name: 'Ana', calendars: ['calendar.ana'], todo: 'todo.ana' }],
+  };
+
+  function counting() {
+    const calls = { api: 0, ws: 0 };
+    const hass = makeHass({
+      states: {
+        'calendar.ana': { state: 'off', attributes: {} },
+        'todo.ana': { state: '2', attributes: {} },
+      },
+      callApi: async () => { calls.api += 1; return []; },
+      callWS: async () => { calls.ws += 1; return { items: [] }; },
+    });
+    return { hass, calls };
+  }
+
+  it('refetches only the to-do lists when a to-do entity changes', async () => {
+    const { hass, calls } = counting();
+    const { hub } = makeHub(twoSources, hass);
+    await hub.refresh();
+    const prev = { ...hass, states: { ...hass.states } };
+    hass.states = { ...hass.states, 'todo.ana': { state: '1', attributes: {} } };
+
+    await hub.hassChanged(prev);
+
+    expect(calls.ws).toBe(2);
+    expect(calls.api).toBe(1);
+  });
+
+  it('refetches only the calendars when a calendar entity changes', async () => {
+    const { hass, calls } = counting();
+    const { hub } = makeHub(twoSources, hass);
+    await hub.refresh();
+    const prev = { ...hass, states: { ...hass.states } };
+    hass.states = { ...hass.states, 'calendar.ana': { state: 'on', attributes: {} } };
+
+    await hub.hassChanged(prev);
+
+    expect(calls.api).toBe(2);
+    expect(calls.ws).toBe(1);
+  });
+});
+
+describe('unified task list on the model', () => {
+  it('builds tasks and progress onto each person once', async () => {
+    const hass = makeHass({
+      callWS: async () => ({ items: [
+        { uid: 'c1', summary: 'Bins', status: 'needs_action' },
+        { uid: 'c2', summary: 'Dog', status: 'completed' },
+      ] }),
+      states: {
+        'sensor.ana_points': { state: '1', attributes: { child_id: 'k1' } },
+        'sensor.taskmate_chores': { state: '1', attributes: { todays_completions: [
+          { chore_id: 'c9', child_id: 'k1', chore_name: 'Tidy', approved: false, completed_at: '2026-08-03T08:00:00Z' },
+        ] } },
+      },
+    });
+    const { hub } = makeHub(cfg, hass);
+    await hub.refresh();
+    const ana = hub.model.people[0];
+    expect(ana.tasks.map((t) => t.summary)).toEqual(['Bins', 'Dog', 'Tidy']);
+    expect(ana.tasks[2].pending).toBe(true);
+    expect(ana.progress).toEqual({ done: 2, total: 3, pct: 67 });
+  });
+
+  it('caps the completed to-do items it lists to max_completed', async () => {
+    const hass = makeHass({
+      callWS: async () => ({ items: [
+        { uid: 'c1', summary: 'Old 1', status: 'completed' },
+        { uid: 'c2', summary: 'Old 2', status: 'completed' },
+      ] }),
+    });
+    const { hub } = makeHub({ ...cfg, max_completed: 1 }, hass);
+    await hub.refresh();
+    expect(hub.model.people[0].tasks).toHaveLength(1);
+    expect(hub.model.people[0].progress.done).toBe(2);
+  });
+});
+
+describe('shared calendars on the model', () => {
+  it('gives the Family person its events and no chores', async () => {
+    const hass = makeHass({
+      callApi: async (_m, path) => (path.includes('family')
+        ? [{ summary: 'Zoo', start: { dateTime: '2026-08-03T09:00:00Z' }, end: { dateTime: '2026-08-03T10:00:00Z' } }]
+        : []),
+    });
+    const { hub } = makeHub({ people: [{ name: 'Ana', calendars: ['calendar.ana'] }], shared_calendars: ['calendar.family'] }, hass);
+    await hub.refresh();
+    const fam = hub.model.people.find((p) => p.shared);
+    expect(fam.events.map((e) => e.summary)).toEqual(['Zoo']);
+    expect(hub.model.people.find((p) => p.id === 'ana').events).toEqual([]);
+  });
+});
+
+describe('avatar resolution', () => {
+  const states = {
+    'person.ana': { state: 'home', attributes: { entity_picture: '/api/image/ana', friendly_name: 'Ana M' } },
+    'sensor.ana_points': { state: '3', attributes: { avatar: 'mdi:unicorn', avatar_image: '/api/taskmate/ana.png', current_streak: 2 } },
+  };
+
+  it('prefers an explicit picture', async () => {
+    const { hub } = makeHub({ people: [{ name: 'Ana', todo: 'todo.ana', picture: '/local/a.jpg', person: 'person.ana', points: 'sensor.ana_points' }] }, makeHass({ states }));
+    await hub.refresh();
+    expect(hub.model.people[0].picture).toBe('/local/a.jpg');
+  });
+
+  it('falls back to the person entity picture, then TaskMate image, then TaskMate icon', async () => {
+    let { hub } = makeHub({ people: [{ name: 'Ana', todo: 'todo.ana', person: 'person.ana', points: 'sensor.ana_points' }] }, makeHass({ states }));
+    await hub.refresh();
+    expect(hub.model.people[0].picture).toBe('/api/image/ana');
+
+    ({ hub } = makeHub({ people: [{ name: 'Ana', todo: 'todo.ana', points: 'sensor.ana_points' }] }, makeHass({ states })));
+    await hub.refresh();
+    expect(hub.model.people[0].picture).toBe('/api/taskmate/ana.png');
+
+    const noImage = { 'sensor.ana_points': { state: '3', attributes: { avatar: 'mdi:unicorn' } } };
+    ({ hub } = makeHub({ people: [{ name: 'Ana', todo: 'todo.ana', points: 'sensor.ana_points' }] }, makeHass({ states: noImage })));
+    await hub.refresh();
+    expect(hub.model.people[0].picture).toBeNull();
+    expect(hub.model.people[0].icon).toBe('mdi:unicorn');
+  });
+});

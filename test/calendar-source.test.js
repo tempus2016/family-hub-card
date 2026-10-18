@@ -124,3 +124,41 @@ describe('fetchEvents', () => {
     expect(events.map((e) => e.summary)).toEqual(['AllDay', 'Early', 'Late']);
   });
 });
+
+describe('fetchEvents with a calendar shared by two people', () => {
+  const now = new Date('2026-08-03T10:00:00Z');
+  const people = [
+    { id: 'ana', calendars: ['calendar.ana', 'calendar.family'] },
+    { id: 'ben', calendars: ['calendar.family'] },
+  ];
+  const one = [{ summary: 'Zoo', start: { dateTime: '2026-08-03T09:00:00Z' }, end: { dateTime: '2026-08-03T10:00:00Z' }, description: 'Bring hats' }];
+
+  it('fetches each calendar entity once', async () => {
+    const calls = [];
+    const hass = { callApi: async (_m, path) => { calls.push(path); return one; } };
+    await fetchEvents(hass, people, now, TZ);
+    expect(calls.filter((p) => p.includes('calendar.family'))).toHaveLength(1);
+  });
+
+  it('gives the shared event the same id for both people', async () => {
+    const hass = { callApi: async () => one };
+    const { events } = await fetchEvents(hass, people, now, TZ);
+    const zoo = events.filter((e) => e.summary === 'Zoo');
+    expect(zoo.map((e) => e.personId).sort()).toEqual(['ana', 'ana', 'ben']);
+    const shared = zoo.filter((e) => e.calendar === 'calendar.family');
+    expect(new Set(shared.map((e) => e.id)).size).toBe(1);
+  });
+
+  it('carries the description through', async () => {
+    const hass = { callApi: async () => one };
+    const { events } = await fetchEvents(hass, people, now, TZ);
+    expect(events[0].description).toBe('Bring hats');
+  });
+
+  it('marks the failure on every person listing the broken calendar', async () => {
+    const hass = { callApi: async (_m, path) => { if (path.includes('family')) throw new Error('x'); return []; } };
+    const { failuresByPerson } = await fetchEvents(hass, people, now, TZ);
+    expect(failuresByPerson.ana).toEqual(['calendar.family']);
+    expect(failuresByPerson.ben).toEqual(['calendar.family']);
+  });
+});

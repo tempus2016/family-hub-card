@@ -104,3 +104,29 @@ describe('groupTasks', () => {
     expect(groupTasks(person(), TZ)).toEqual({ morning: [], afternoon: [], evening: [], chores: [] });
   });
 });
+
+describe('groupTasks with due times', () => {
+  it('files a chore with a due time and no event by that time', () => {
+    const p = person({
+      chores: [{ id: '1', summary: 'Call gran', status: 'needs_action', due: new Date('2026-08-10T15:00:00Z'), dueHasTime: true }],
+    });
+    expect(groupTasks(p, TZ).afternoon.map((t) => t.summary)).toEqual(['Call gran']);
+  });
+
+  it('files a chore with a date-only due under chores', () => {
+    // Date-only dues are anchored at midday UTC by the to-do source; that is a
+    // date, not a time of day.
+    const p = person({
+      chores: [{ id: '1', summary: 'Homework', status: 'needs_action', due: new Date(Date.UTC(2026, 7, 10, 12)), dueHasTime: false }],
+    });
+    expect(groupTasks(p, TZ).chores.map((t) => t.summary)).toEqual(['Homework']);
+  });
+
+  it('prefers the matched event time over the due time', () => {
+    const p = person({
+      events: [at('Make bed', '2026-08-10T05:00:00Z')],
+      chores: [{ id: '1', summary: 'Make bed', status: 'needs_action', due: new Date('2026-08-10T15:00:00Z'), dueHasTime: true }],
+    });
+    expect(groupTasks(p, TZ).morning.map((t) => t.summary)).toEqual(['Make bed']);
+  });
+});

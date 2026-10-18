@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildDays, bucketByDay, choreProgress, completedNames, chipState, barPeriod } from '../src/views/week-view.js';
+import { buildDays, bucketByDay, choreProgress, completedNames, chipState, barPeriod, weekStartOffset, cellChips, familyChoreNames } from '../src/views/week-view.js';
 import { localDayWindow } from '../src/data/time.js';
 
 const TZ = 'Europe/London';
@@ -11,6 +11,18 @@ describe('buildDays', () => {
     expect(days.map((d) => d.dayNum)).toEqual([3, 4, 5, 6, 7, 8, 9]);
     expect(days[0].isToday).toBe(true);
     expect(days.filter((d) => d.isToday)).toHaveLength(1);
+  });
+
+  it('still starts today after midday', () => {
+    // 13:00 BST. Anchoring on now+12h lands in tomorrow, which is what the
+    // wall tablet showed every afternoon.
+    const days = buildDays(new Date('2026-08-10T12:00:00Z'), TZ);
+    expect(days.map((d) => d.dayNum)).toEqual([10, 11, 12, 13, 14, 15, 16]);
+  });
+
+  it('still starts today in the last half hour of the day', () => {
+    const days = buildDays(new Date('2026-08-10T22:30:00Z'), TZ);
+    expect(days.map((d) => d.dayNum)).toEqual([10, 11, 12, 13, 14, 15, 16]);
   });
 
   it('rolls over month ends', () => {
@@ -152,5 +164,97 @@ describe('barPeriod', () => {
 
   it('names the week when paged away', () => {
     expect(barPeriod(7, new Date('2026-08-10T10:00:00Z'))).toMatch(/^Week of /);
+  });
+});
+
+describe('weekStartOffset', () => {
+  it('is zero on a Monday for a monday week', () => {
+    expect(weekStartOffset(new Date('2026-08-10T10:00:00Z'), TZ, 'monday')).toBe(0);
+  });
+
+  it('steps back to Monday from a Thursday', () => {
+    expect(weekStartOffset(new Date('2026-08-13T10:00:00Z'), TZ, 'monday')).toBe(-3);
+  });
+
+  it('steps back six days from a Sunday for a monday week', () => {
+    expect(weekStartOffset(new Date('2026-08-16T10:00:00Z'), TZ, 'monday')).toBe(-6);
+  });
+
+  it('steps back to Sunday for a sunday week', () => {
+    expect(weekStartOffset(new Date('2026-08-13T10:00:00Z'), TZ, 'sunday')).toBe(-4);
+  });
+
+  it('is always zero for a rolling week', () => {
+    expect(weekStartOffset(new Date('2026-08-13T10:00:00Z'), TZ, 'today')).toBe(0);
+  });
+
+  it('decides the weekday in the dashboard timezone, not UTC', () => {
+    // 23:30Z on Sunday 16th is already Monday 17th 00:30 in London.
+    expect(weekStartOffset(new Date('2026-08-16T23:30:00Z'), TZ, 'monday')).toBe(0);
+  });
+});
+
+describe('buildDays from a week start', () => {
+  it('marks the real today wherever it falls in the week', () => {
+    const today = new Date('2026-08-13T10:00:00Z');
+    const days = buildDays(today, TZ, 7, -3);
+    expect(days.map((d) => d.dayNum)).toEqual([10, 11, 12, 13, 14, 15, 16]);
+    expect(days.map((d) => d.isToday)).toEqual([false, false, false, true, false, false, false]);
+  });
+});
+
+describe('cellChips', () => {
+  const ev = (summary) => ({ id: summary, summary, allDay: false });
+  const chores = new Set(['make bed', 'brush teeth']);
+
+  it('collapses events that are chores into one counted chip after the real events', () => {
+    const chips = cellChips([ev('Make bed'), ev('Swimming'), ev('Brush teeth')], chores, false, new Set());
+    expect(chips.filter((c) => !c.collapsed).map((c) => c.summary)).toEqual(['Swimming']);
+    expect(chips.at(-1)).toMatchObject({ collapsed: true, total: 2, done: 0 });
+    expect(chips).toHaveLength(2);
+  });
+
+  it('counts completions into the chore chip on today only', () => {
+    const done = new Set(['Make bed']);
+    expect(cellChips([ev('Make bed'), ev('Brush teeth')], chores, true, done)[0]).toMatchObject({ done: 1, total: 2 });
+    expect(cellChips([ev('Make bed'), ev('Brush teeth')], chores, false, done)[0]).toMatchObject({ done: 0, total: 2 });
+  });
+
+  it('emits no chore chip when nothing matches', () => {
+    expect(cellChips([ev('Swimming')], chores, false, new Set()).some((c) => c.collapsed)).toBe(false);
+  });
+
+  it('keeps every event as a chip when collapsing is off', () => {
+    expect(cellChips([ev('Make bed'), ev('Swimming')], chores, false, new Set(), false)).toHaveLength(2);
+  });
+});
+
+describe('familyChoreNames', () => {
+  it('unions every person’s chore names so a shared chore collapses in every row', () => {
+    const people = [
+      { chores: [{ summary: 'Weekly bins', status: 'needs_action' }], completedToday: [] },
+      { chores: [], completedToday: [{ name: 'Water plants' }] },
+    ];
+    expect([...familyChoreNames(people)].sort()).toEqual(['water plants', 'weekly bins']);
+  });
+});
+
+describe('cellChips today uses the chore list count', () => {
+  const ev = (summary) => ({ id: summary, summary, allDay: false });
+  const chores = new Set(['make bed', 'brush teeth', 'bins', 'plants']);
+
+  it('reports done/total from progress so the chip agrees with the bar', () => {
+    const chips = cellChips([ev('Make bed'), ev('Brush teeth'), ev('Bins'), ev('Plants')], chores, true, new Set(), true, { done: 1, total: 2 });
+    expect(chips[0]).toMatchObject({ collapsed: true, done: 1, total: 2 });
+  });
+
+  it('falls back to the event count when the list is empty', () => {
+    const chips = cellChips([ev('Make bed'), ev('Brush teeth')], chores, true, new Set(), true, { done: 0, total: 0 });
+    expect(chips[0]).toMatchObject({ collapsed: true, done: 0, total: 2 });
+  });
+
+  it('ignores progress on other days', () => {
+    const chips = cellChips([ev('Make bed'), ev('Brush teeth')], chores, false, new Set(), true, { done: 1, total: 2 });
+    expect(chips[0]).toMatchObject({ collapsed: true, done: 0, total: 2 });
   });
 });
