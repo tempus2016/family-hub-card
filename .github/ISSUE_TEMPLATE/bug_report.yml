@@ -40,7 +40,7 @@ body:
     attributes:
       label: Installation Method
       options:
-        - HACS (custom repository)
+        - HACS
         - Manual (copied family-hub-card.js to www/)
     validations:
       required: true

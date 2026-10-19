@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
+  <a href="https://github.com/hacs/default"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg" alt="HACS Default"></a>
   <a href="https://github.com/tempus2016/family-hub-card/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
   <img src="https://img.shields.io/badge/Home%20Assistant-2024.1+-blue" alt="HA Version">
   <a href="https://github.com/tempus2016/family-hub-card/releases"><img src="https://img.shields.io/github/v/release/tempus2016/family-hub-card" alt="Latest Release"></a>
@@ -84,9 +84,13 @@ embedded in the bundle.
 
 ## Install
 
-HACS → Frontend → custom repository `tempus2016/family-hub-card`, category
-Lovelace. Then add the resource if your instance does not do it automatically —
-type **JavaScript Module**, not JavaScript file.
+Family Hub Card is in the default HACS store — no custom repository needed.
+
+[![Open your Home Assistant instance and open this repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=tempus2016&repository=family-hub-card&category=plugin)
+
+Or search HACS for **Family Hub Card** and click **Download**. Then add the
+resource if your instance does not do it automatically — type **JavaScript
+Module**, not JavaScript file.
 
 Full instructions, including manual install: [Installation](https://github.com/tempus2016/family-hub-card/wiki/Installation).
 
