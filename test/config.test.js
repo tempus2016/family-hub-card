@@ -228,8 +228,8 @@ describe('screens and calendar views', () => {
   });
 
   it('accepts the new keys', () => {
-    const cfg = normaliseConfig({ ...base, family_name: 'MacKinnon Family', home: 'tasks', calendar_view: 'month', taskmate_rewards: 'sensor.taskmate_rewards', meals_calendar: 'calendar.meals', hide_completed: true });
-    expect(cfg).toMatchObject({ familyName: 'MacKinnon Family', home: 'tasks', calendarView: 'month', taskmateRewards: 'sensor.taskmate_rewards', mealsCalendar: 'calendar.meals', hideCompleted: true });
+    const cfg = normaliseConfig({ ...base, family_name: 'Smith Family', home: 'tasks', calendar_view: 'month', taskmate_rewards: 'sensor.taskmate_rewards', meals_calendar: 'calendar.meals', hide_completed: true });
+    expect(cfg).toMatchObject({ familyName: 'Smith Family', home: 'tasks', calendarView: 'month', taskmateRewards: 'sensor.taskmate_rewards', mealsCalendar: 'calendar.meals', hideCompleted: true });
   });
 
   it('maps the legacy view key onto a calendar view', () => {

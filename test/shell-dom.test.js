@@ -69,8 +69,8 @@ describe('rail', () => {
 
 describe('header', () => {
   it('shows the family name when set and the date otherwise', async () => {
-    let el = await mount({ ...base, family_name: 'MacKinnon Family' });
-    expect($(el, '.title').textContent).toContain('MacKinnon Family');
+    let el = await mount({ ...base, family_name: 'Smith Family' });
+    expect($(el, '.title').textContent).toContain('Smith Family');
     el = await mount(base);
     expect($(el, '.title').textContent).toMatch(/Sunday/);
   });

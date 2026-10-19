@@ -94,7 +94,7 @@ Full instructions, including manual install: [Installation](https://github.com/t
 
 ```yaml
 type: custom:family-hub-card
-family_name: MacKinnon Family
+family_name: Smith Family
 home: calendar
 calendar_view: schedule
 theme: auto
