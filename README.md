@@ -77,8 +77,8 @@ Theme (follows Home Assistant on `auto`), home screen, calendar view and
 hide-completed, stored per device so the wall tablet can stay dark and open on
 Tasks while your phone does something else.
 
-The card follows the Home Assistant profile for language (English and
-Portuguese) and 12- or 24-hour time. Avatars come from the person's photo,
+The card follows the Home Assistant profile for language (English,
+Portuguese and German) and 12- or 24-hour time. Avatars come from the person's photo,
 a picture URL, or TaskMate's avatar. Fonts are Lora and Outfit (SIL OFL),
 embedded in the bundle.
 
