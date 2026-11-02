@@ -39,5 +39,8 @@
     "happy-dom": "^21.0.4",
     "rollup": "^4.65.1",
     "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
   }
 }
