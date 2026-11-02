@@ -10,8 +10,13 @@ describe('t', () => {
     expect(t('pt', 'all_done')).toBe('Tudo feito');
   });
 
+  it('returns the German string when the language is de', () => {
+    expect(t('de', 'all_done')).toBe('Alles erledigt');
+    expect(t('de', 'done_of', { done: 2, total: 5 })).toBe('2/5 erledigt');
+  });
+
   it('falls back to English for a language it has no strings for', () => {
-    expect(t('de', 'all_done')).toBe('All done');
+    expect(t('xx', 'all_done')).toBe('All done');
   });
 
   it('falls back to English for a key a language is missing', () => {
@@ -31,6 +36,7 @@ describe('pickLanguage', () => {
   it('reads the language off hass, dropping any region', () => {
     expect(pickLanguage({ language: 'pt-BR' })).toBe('pt');
     expect(pickLanguage({ locale: { language: 'en-GB' } })).toBe('en');
+    expect(pickLanguage({ language: 'de-AT' })).toBe('de');
   });
 
   it('defaults to English without hass', () => {
