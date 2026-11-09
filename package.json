@@ -34,11 +34,11 @@
     "@eslint/js": "^10.0.1",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^1.0.2",
-    "eslint": "^10.13.0",
-    "globals": "^17.13.0",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
     "happy-dom": "^21.0.4",
     "rollup": "^4.65.1",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "minimatch": "^11.0.1"
